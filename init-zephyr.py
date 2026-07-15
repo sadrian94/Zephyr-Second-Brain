@@ -182,6 +182,14 @@ def main():
         shutil.copy2(src_css, dest_css)
         log("Copied zephyr-dashboard.css snippet to Obsidian snippets directory.")
         
+    # Copy DESIGN.md to System/ for agent design compliance
+    design_src = os.path.join(WORKSPACE_DIR, "DESIGN.md")
+    design_dest = os.path.join(VAULT_DIR, "System", "DESIGN.md")
+    if os.path.exists(design_src):
+        ensure_dir(os.path.dirname(design_dest))
+        shutil.copy2(design_src, design_dest)
+        log("Copied DESIGN.md to System/DESIGN.md")
+        
     # Enable dataview in community-plugins.json safely
     com_plugins_path = os.path.join(VAULT_DIR, ".obsidian", "community-plugins.json")
     try:

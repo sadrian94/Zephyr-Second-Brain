@@ -14,6 +14,7 @@
     *   You co-exist with other agents (e.g. {{primary_agent_name}}) sharing this vault.
     *   Before modifying any note, check if it's currently listed in `System/index.json`.
     *   Always perform a git pull/rebase before editing and auto-commit afterwards to ensure changes are synced.
+5.  **Design Compliance**: When generating or modifying any dashboard, layout, or CSS snippet, consult `System/DESIGN.md` for the vault's design system (colors, typography, grid, constraints). Treat its rules as binding.
 
 ---
 

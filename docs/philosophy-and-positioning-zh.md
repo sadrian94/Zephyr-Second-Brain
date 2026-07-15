@@ -58,4 +58,4 @@ Zephyr 的技術架構與協作模式均遵循「極簡、按需調用（On-dema
 * **人機協同沙盒**：這是專專專為 **Hermes-agent** 設計的溫和協作空間，實現了「機器友好」與「人類心流」的完美平衡。
 * **治理邊界 (Governance)**：嚴格劃分 `AUTO` (自動執行)、`PROPOSE` (提案審查) 與 `NEVER` (絕對禁止) 邊界，確保系統主權始終掌握在人類手中。
 
-> 📖 關於 Zephyr 底層的代碼運作與技術細節，請參閱 **[Zephyr 技術架構說明書](file:///c:/Users/sadri/workspace/Zephyr/docs/architecture-zh.md)**。
+> 📖 關於 Zephyr 底層的代碼運作與技術細節，請參閱 **[Zephyr 技術架構說明書](./docs/architecture-zh.md)**。

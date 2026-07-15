@@ -58,4 +58,4 @@ Zephyr’s tech architecture and collaboration rules follow the principle of "mi
 * **Collaborative Sandbox**: A warm, non-intrusive environment designed specifically for **Hermes-agent**, balancing agent readability and human flow.
 * **Governance Boundaries**: Clear dividing lines between `AUTO` (automated actions), `PROPOSE` (review required), and `NEVER` (strictly prohibited) protect your personal brain.
 
-> 📖 For details on code workflows and technical implementations, please refer to the **[Zephyr Technical Architecture Document](file:///c:/Users/sadri/workspace/Zephyr/docs/architecture.md)**.
+> 📖 For details on code workflows and technical implementations, please refer to the **[Zephyr Technical Architecture Document](./architecture.md)**.

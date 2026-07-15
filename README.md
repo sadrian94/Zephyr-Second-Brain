@@ -2,7 +2,7 @@
 
 > Named after **Zephyrus**, the Greek god of the West Wind. Zephyr symbolizes a system that runs as lightly and imperceptibly as a gentle breeze in the background, yet possesses the strength to sweep away all chaotic formatting, cognitive noise, and redundant tasks.
 >
-> 📖 Read the full **[Zephyr Philosophy & Positioning](file:///c:/Users/sadri/workspace/Zephyr/docs/philosophy-and-positioning.md)** document for a deep dive into our flow-first design and on-demand architecture.
+> 📖 Read the full **[Zephyr Philosophy & Positioning](./docs/philosophy-and-positioning.md)** document for a deep dive into our flow-first design and on-demand architecture.
 
 Zephyr is an extremely lightweight, imperceptible, and flow-first Obsidian-based Second Brain built for cross-device sync and multi-agent collaboration, designed specifically to serve the **Hermes-agent** ecosystem. It minimizes cognitive overhead, allowing human minds to remain in pure creative flow while background workers and AI agents handle note organization, linkage, and curation.
 
@@ -81,6 +81,6 @@ To balance AI autonomy with user control over their knowledge base, Zephyr follo
 ## 📖 Vault Documentation
 
 Explore the detailed manuals inside the `docs/` folder:
-- 💡 **[Zephyr Philosophy & Positioning](file:///c:/Users/sadri/workspace/Zephyr/docs/philosophy-and-positioning.md)**: Flow-first design principles.
-- ⚙️ **[Technical Architecture Manual](file:///c:/Users/sadri/workspace/Zephyr/docs/architecture.md)**: Script interactions and `index.json` details.
-- 🎯 **[Project Management Guide](file:///c:/Users/sadri/workspace/Zephyr/docs/project-management.md)**: Setting up and automating project lifecycles.
+- 💡 **[Zephyr Philosophy & Positioning](./docs/philosophy-and-positioning.md)**: Flow-first design principles.
+- ⚙️ **[Technical Architecture Manual](./docs/architecture.md)**: Script interactions and `index.json` details.
+- 🎯 **[Project Management Guide](./docs/project-management.md)**: Setting up and automating project lifecycles.

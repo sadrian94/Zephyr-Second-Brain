@@ -18,3 +18,6 @@ config_local.json
 superpower/
 superpowers/
 .superpowers/
+
+# Vault secrets — never commit your config.json
+System/config.json

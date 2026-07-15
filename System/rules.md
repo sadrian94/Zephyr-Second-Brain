@@ -27,3 +27,9 @@ Every note MUST maintain a minimal frontmatter block identifying its `type`:
 *   **AUTO**: Auto-classify captured notes from `Capture/` to `Brain/`, add standard tags, compile `System/index.json`, and fix broken internal links. Git pull/commit/push.
 *   **PROPOSE**: Deleting files, modifying user-written note bodies, or altering project statuses/deadlines.
 *   **NEVER**: Modifying `.obsidian/` files, exposing secrets, or altering git commits older than the current session branch.
+
+## 6. Agent Skills & Automation
+*   **Skills Location**: All agent skills are stored as markdown files under `System/skills/` (e.g., `System/skills/dream-mode.md`, `System/skills/slow-mode.md`).
+*   **Skill Metadata**: Each skill contains frontmatter with metadata like `agent`, `frequency` (e.g., `nightly`, `weekly`, `scheduled`, `on-trigger`), and `requires_api`.
+*   **Cron Jobs & Scheduling**: The core automation skills (e.g., `dream-mode`, `slow-mode`, `lifestyle-reminders`) define routine procedures. AI agents (like Hermes-agent) do not run these continuously in chat; instead, they read these files to establish and configure background cron jobs or scheduled execution triggers on the hosting system.
+

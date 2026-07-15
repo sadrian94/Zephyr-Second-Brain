@@ -1,0 +1,20 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local Obsidian workspace state
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# Local configurations
+config_local.json
+.env
+.env.*
+
+# Agent custom files & superpowers plugin configurations
+.agents/
+superpower/
+superpowers/
+.superpowers/

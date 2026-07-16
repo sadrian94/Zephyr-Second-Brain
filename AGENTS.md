@@ -1,55 +1,111 @@
-# Zephyr Second Brain — Primary Agent Context ({{primary_agent_name}} / Claude)
+# Zephyr Second Brain — Hermes Agent Context
 
-## 1. Persona & Operating Environment
-*   **Agent Persona**: You are {{primary_agent_name}} — wise, witty, direct, and helpful. When interacting with {{user_name}} in chat or Discord, maintain this persona.
-*   **User Name**: {{user_name}}
-*   **Preferred Language**: {{preferred_language}} (use for communication; use English for code/technical terms).
-*   **Timezone**: {{timezone}}
+> **Hermes load note:** Hermes injects this file when the session cwd / `TERMINAL_CWD` is the vault root. Only **one** project context source is loaded (`AGENTS.md` wins over `CLAUDE.md` / `.cursorrules`). `GEMINI.md` is for a secondary agent and is **not** auto-loaded by Hermes.
+>
+> **Identity:** Chat persona may already come from Hermes `SOUL.md`. This file is the **vault operating system** — structure, governance, and workflows. Do not invent a second personality that fights SOUL.md; use placeholders below only when speaking as the vault's primary agent.
+
+## 0. Session Bootstrap (do this first)
+
+1. Treat the vault root as the directory that contains `Capture/`, `Brain/`, and `System/`.
+2. Load personal settings from `System/config.json` if present (gitignored). If keys are still placeholders (`<...>`) or missing, fall back to the `{{...}}` tokens below and ask only when a real secret is required.
+3. Ensure the context index exists:
+   ```bash
+   python3 System/zephyr-worker.py index
+   ```
+   Then read `System/index.json` for notes, tags, links, and `unprocessed_ideas`.
+4. Prefer tools over memory for vault state: re-read `System/index.json` after worker runs; do not invent note contents.
+5. Design system for dashboards/CSS lives at `System/DESIGN.md` (binding).
+
+### Recommended paths
+
+| Role | Path |
+|------|------|
+| Template repo (public) | this git checkout — no personal notes |
+| Personal vault (default) | `~/Obsidian/Zephyr` after `python3 init-zephyr.py` |
+
+During development, Hermes should usually operate on the **personal vault** cwd, not dump personal notes into the public template.
+
+## 1. Persona & Environment (from config / placeholders)
+
+* **Primary agent name**: `{{primary_agent_name}}`
+* **User name**: `{{user_name}}`
+* **Preferred language**: `{{preferred_language}}` (chat language; English for code/paths/commands)
+* **Timezone**: `{{timezone}}`
+* **Secondary agent**: `{{secondary_agent_name}}` (see `GEMINI.md` if that agent is active)
+
+If `System/config.json` exists, its values override unresolved `{{placeholders}}`.
 
 ## 2. Core Directives
-1.  **Unified Rules**: Read and follow the unified rules defined below for all note organization, frontmatter schemas, and edit boundaries.
-2.  **Context Index**: Read the compiled `System/index.json` at session start. It contains all notes, summaries, links, and tags in the vault, giving you instant global context.
-3.  **Governance Compliance**: You must strictly respect the Governance boundaries (AUTO, PROPOSE, NEVER) defined below.
-4.  **Dynamic Coordination**:
-    *   You co-exist with other agents (e.g. {{secondary_agent_name}}) sharing this vault.
-    *   Before modifying any note, check if it's currently listed in `System/index.json`.
-    *   Always perform a git pull/rebase before editing and auto-commit afterwards to ensure changes are synced.
-5.  **Design Compliance**: When generating or modifying any dashboard, layout, or CSS snippet, consult `System/DESIGN.md` for the vault's design system (colors, typography, grid, constraints). Treat its rules as binding.
+
+1. **Unified rules** — follow the rulebook below for folders, frontmatter, links, and governance.
+2. **Context index** — use `System/index.json` as the cheap global map; open individual notes only when needed.
+3. **Governance** — respect AUTO / PROPOSE / NEVER.
+4. **Multi-agent safety** — another agent may share this vault; pull/rebase before coordinated edits on a shared personal vault; never rewrite older git history.
+5. **Design compliance** — dashboards/CSS follow `System/DESIGN.md`.
+6. **Hermes skills vs vault skills** — Hermes skills live under `~/.hermes/skills/`. Vault routines live under `System/skills/*.md` and are **procedures** to run (cron / on-trigger), not auto-loaded Hermes skills unless you explicitly open them.
+
+## 3. Hermes Tooling Map
+
+| Task | Command / action |
+|------|------------------|
+| Rebuild index + heal links | `python3 System/zephyr-worker.py index` |
+| Classify inbox + index + git sync | `python3 System/zephyr-worker.py` or `fast` |
+| Watch Capture/Brain | `./run-watcher.sh` (or `python3 System/zephyr-watcher.py`) |
+| Expand raw ideas | Follow `System/skills/idea-expansion.md` (PROPOSE via `-- draft.md`) |
+| Nightly consolidation | `System/skills/dream-mode.md` |
+| Weekly briefing | `System/skills/slow-mode.md` |
+| Health / archive | `System/skills/vault-maintenance.md` |
+
+API key in `System/config.json` is optional for index/heal/git; required for LLM classify and most agent skills marked `requires_api: true`. Offline worker fallback still classifies without a key.
 
 ---
 
 # Unified Agent Rulebook
 
-Welcome to **Zephyr**, a lightweight, invisible second brain built for cross-device sync and multi-agent collaboration.
-
 ## 1. Vault Directory Structure
-All notes in the vault reside in exactly one of three folders:
-*   `Capture/`: Where the user captures raw ideas, clippings, daily logs, and meeting minutes.
-*   `Brain/`: The flat pool of all active projects, areas, portals, and evergreen notes.
-*   `System/`: Vault-level configurations, templates, skills, indexing cache, and archived notes.
+
+All notes live in exactly one of:
+
+* `Capture/` — raw ideas, clippings, daily logs, meeting minutes, drafts
+* `Brain/` — projects, evergreen notes, areas, portals/MOCs
+* `System/` — config, templates, skills, index cache, archive, design
 
 ## 2. Note Schema & Metadata
-Every note MUST maintain a minimal frontmatter block identifying its `type`:
-1.  **`project`**: Active endeavors. Fields: `status` (active/paused/completed/archived), `priority` (high/medium/low), `deadline` (YYYY-MM-DD), `area`.
-2.  **`log`**: Daily notes, meetings, logs. Fields: `date` (YYYY-MM-DD).
-3.  **`note`**: Evergreen knowledge, areas (tagged `#area/...`), and portals/MOCs (tagged `#moc`). Fields: `tags` (topic tags).
+
+Every note needs frontmatter with `type`:
+
+1. **`project`**: `status` (active/paused/completed/archived), `priority` (high/medium/low), `deadline` (YYYY-MM-DD), `area`
+2. **`log`**: `date` (YYYY-MM-DD)
+3. **`note`**: evergreen / areas (`#area/...`) / MOCs (`#moc`) + topic `tags`
 
 ## 3. Capture-First, Classify-Later
-*   **Human Role**: Captures freeform thoughts, logs, and ideas inside `Capture/` or daily logs.
-*   **Worker Role**: Local script (`zephyr-worker.py`) watches `Capture/`, auto-classifies notes, formats headers, and moves knowledge notes/projects to `Brain/`.
-*   **Agent Role**: AI Agents scan ideas in `Capture/` and actively guide the user to cultivate/expand them into structured projects or notes (refer to `System/skills/idea-expansion.md`).
 
-## 4. Wikilink & Naming Conventions
-*   **Wikilinks**: Always use plain flat wikilinks: `[[Note Name]]`. Never include folder prefixes.
-*   **Filenames**: Keep filenames unique and Windows NTFS safe (no `\ / : * ? " < > |` characters).
+* **Human**: dumps thoughts into `Capture/` or daily log `## Capture` (`- idea: ...`)
+* **Worker**: `zephyr-worker.py` classifies, templates, indexes, heals links
+* **Agent**: cultivates ideas via `System/skills/idea-expansion.md` without destroying raw capture
+
+## 4. Wikilink & Naming
+
+* Wikilinks: flat `[[Note Name]]` only — never folder prefixes
+* Filenames: unique, Windows-safe (no `\ / : * ? " < > |`)
 
 ## 5. Governance Model
-*   **AUTO**: Auto-classify captured notes from `Capture/` to `Brain/`, add standard tags, compile `System/index.json`, and fix broken internal links. Git pull/commit/push.
-*   **PROPOSE**: Deleting files, modifying user-written note bodies, or altering project statuses/deadlines.
-*   **NEVER**: Modifying `.obsidian/` files, exposing secrets, or altering git commits older than the current session branch.
+
+* **AUTO**: classify Capture → Brain, standard tags, compile `System/index.json`, heal broken/case-mismatched links, local worker maintenance. Git commit/push **only** when operating inside the **personal vault** and a remote is intentionally configured.
+* **PROPOSE**: deletes, edits to human-written body text, project status/deadline changes — use `* -- draft.md` or ask first.
+* **NEVER**: expose secrets/API keys; rewrite git history older than the current session branch; casually edit `.obsidian/` outside `init-zephyr.py`; commit personal notes into the **public template** repo.
 
 ## 6. Agent Skills & Automation
-*   **Skills Location**: All agent skills are stored as markdown files under `System/skills/` (e.g., `System/skills/dream-mode.md`, `System/skills/slow-mode.md`).
-*   **Skill Metadata**: Each skill contains frontmatter with metadata like `agent`, `frequency` (e.g., `nightly`, `weekly`, `scheduled`, `on-trigger`), and `requires_api`.
-*   **Cron Jobs & Scheduling**: The core automation skills (e.g., `dream-mode`, `slow-mode`, `lifestyle-reminders`) define routine procedures. AI agents (like Hermes-agent) do not run these continuously in chat; instead, they read these files to establish and configure background cron jobs or scheduled execution triggers on the hosting system.
 
+* Location: `System/skills/` (`dream-mode`, `slow-mode`, `idea-expansion`, `source-processing`, `vault-maintenance`, `lifestyle-reminders`)
+* Frontmatter: `agent`, `frequency` (`nightly` / `weekly` / `on-trigger` / `scheduled`), `requires_api`
+* Hermes does not loop these continuously in chat — load the skill file and either run the procedure now or configure a Hermes cron job whose `workdir` is the personal vault root.
+
+## 7. Definition of Done (vault tasks)
+
+A vault task is done only when:
+
+1. Required notes exist with valid frontmatter
+2. `python3 System/zephyr-worker.py index` succeeds
+3. `System/index.json` reflects the change (summaries non-empty for content notes when possible)
+4. Governance tier was respected (no silent body rewrites / secret leaks)

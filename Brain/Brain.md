@@ -42,7 +42,7 @@ todayBtn.addEventListener("click", async () => {
             content = await app.vault.read(templateFile);
             content = content.replace(/YYYY-MM-DD/g, todayStr);
         } else {
-            content = `---\ntype: log\ndate: ${todayStr}\ntags: [daily]\n---\n# Daily Log — ${todayStr}\n\n## 🎯 Focus\n- \n\n## 🏆 Wins\n- \n\n## 📥 Capture\n\n\n## 🔄 Log\n- \n`;
+            content = `---\ntype: log\ndate: ${todayStr}\ntags: [daily]\n---\n# Daily Log — ${todayStr}\n\n## Focus\n- \n\n## Wins\n- \n\n## Capture\n\n\n## Log\n- \n`;
         }
         try {
             await app.vault.create(filePath, content);

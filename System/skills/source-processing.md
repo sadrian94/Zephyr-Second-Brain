@@ -9,12 +9,12 @@ tags: [agent, skill, ingestion]
 
 This skill defines how agents clean up, summarize, and extract knowledge claims from raw web clippings, book excerpts, or transcripts.
 
-## 🎯 Objectives
+## Objectives
 - Standardize resource formatting and metadata.
 - Extract structured summaries and key arguments.
 - Connect new clippings to existing projects and areas.
 
-## 📋 Execution Protocol
+## Execution Protocol
 1.  **Ingestion Trigger**:
     *   Monitor the `Capture/` folder for notes tagged with `#clipping`, `#source`, or containing raw copied articles.
 2.  **Processing & Extraction**:

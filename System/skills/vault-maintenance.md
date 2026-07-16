@@ -9,12 +9,12 @@ tags: [agent, skill, maintenance]
 
 This skill defines the weekly vault health checks and cleanup routines managed by the secondary agent.
 
-## 🎯 Objectives
+## Objectives
 - Keep internal link structures fully healed and accurate.
 - Detect and archive idle or completed items.
 - Maintain directory clean-up and remove stray files.
 
-## 📋 Execution Protocol
+## Execution Protocol
 1.  **Stray Files Audit**:
     *   Ensure all `.md` files (except bootstrap rulebooks and `Home.md` at the root) reside in either `Capture/`, `Brain/`, or `System/`.
     *   If a stray note is found in the root, automatically move it to `Capture/` and flag it for classification.
@@ -27,4 +27,4 @@ This skill defines the weekly vault health checks and cleanup routines managed b
     *   Update `System/index.json` to reflect the new paths.
 4.  **Orphan & Attachment Cleanup**:
     *   Scan for orphaned image/media attachments (files in `.obsidian/` or root folders not referenced in any note).
-    *   List these orphans in `System/health-status.md` under `## 📎 Unused Attachments` for user review before deletion.
+    *   List these orphans in `System/health-status.md` under `## Unused Attachments` for user review before deletion.

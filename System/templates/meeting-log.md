@@ -7,11 +7,11 @@ tags: [meeting]
 ---
 # Meeting Log — Title
 
-## 📋 Agenda
+## Agenda
 - Agenda item 1
 
-## 💬 Discussion
+## Discussion
 Detailed notes from the discussion.
 
-## ⚡ Action Items
+## Action Items
 - [ ] Action item 1

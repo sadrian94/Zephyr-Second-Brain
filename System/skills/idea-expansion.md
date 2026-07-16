@@ -9,15 +9,15 @@ tags: [agent, skill, ingestion]
 
 This skill defines how agents process and expand raw bullet points or ideas into structured knowledge components.
 
-## 🎯 Objectives
+## Objectives
 - Relieve the user of formatting and structuring overhead.
 - Transform raw, unstructured thought entries into detailed, actionable project drafts or notes.
 - Maintain original entries unchanged to preserve raw intent.
 
-## 📋 Execution Protocol
+## Execution Protocol
 1.  **Idea Discovery**:
     *   Scan notes in `Capture/` lacking standard frontmatter or containing the tag `#idea`.
-    *   Scan the `## 📥 Capture` section of the current `daily-log.md` for entries starting with `- idea:` or `- 💡`.
+    *   Scan the `## Capture` section of the current `daily-log.md` for entries starting with `- idea:`.
 2.  **Structuring and Expansion**:
     *   Evaluate the raw concept. Determine if it warrants a **Project** (has clear goals and steps) or a **Note/Concept** (is a knowledge item).
     *   **If a Project**:

@@ -9,11 +9,11 @@ tags: [source]
 ---
 # Source Title
 
-## 📝 Summary
+## Summary
 Brief summary of the source content.
 
-## 💡 Highlights
+## Highlights
 * Key quote or point.
 
-## 🔑 Takeaways
+## Takeaways
 * Main takeaway.

@@ -1,86 +1,154 @@
 # Zephyr Second Brain
 
-> Named after **Zephyrus**, the Greek god of the West Wind. Zephyr symbolizes a system that runs as lightly and imperceptibly as a gentle breeze in the background, yet possesses the strength to sweep away all chaotic formatting, cognitive noise, and redundant tasks.
->
-> 📖 Read the full **[Zephyr Philosophy & Positioning](./docs/philosophy-and-positioning.md)** document for a deep dive into our flow-first design and on-demand architecture.
+> Named after **Zephyrus**, the Greek god of the West Wind. Zephyr is a lightweight, flow-first Obsidian second brain for humans + Hermes-agent.
 
-Zephyr is an extremely lightweight, imperceptible, and flow-first Obsidian-based Second Brain built for cross-device sync and multi-agent collaboration, designed specifically to serve the **Hermes-agent** ecosystem. It minimizes cognitive overhead, allowing human minds to remain in pure creative flow while background workers and AI agents handle note organization, linkage, and curation.
+Deep dives:
+- [Philosophy & Positioning](./docs/philosophy-and-positioning.md)
+- [Architecture](./docs/architecture.md)
+- [Project Management](./docs/project-management.md)
 
----
-
-## 🎯 Positioning & Core Philosophy
-
-- **Lightweight & Invisible**: Operates silently in the background like a breeze. It doesn't force complex directory micro-management, keeping you in the flow state.
-- **Hermes-Agent Native**: Tailored as the ultimate memory and knowledge base for Hermes-agent, providing clean metadata, simple APIs, and a unified index.
-- **Local-First & Plain-Text**: Built entirely on flat folders of standard Markdown files and WikiLinks (`[[Note Name]]`). It is fully compatible with Obsidian.
-- **Capture-First, Classify-Later**: Humans record raw thoughts effortlessly in the Capture inbox. Local workers and AI agents classify, tag, format, and organize them into the Brain.
-- **Bi-directional Active Growth**: Through automated nightly "dreams" and weekly "reviews," the vault actively heals broken links, generates semantic associations, and clusters related notes into Portals/MOCs.
+Zephyr keeps you in capture flow. Local workers and agents handle classification, linking, indexing, and maintenance.
 
 ---
 
-## 📂 Vault Directory Structure
+## Prerequisites (Obsidian)
 
-All notes in the vault reside in exactly one of three folders:
+### Required (dashboards will not work without these)
+
+| Component | Why |
+|-----------|-----|
+| **[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** community plugin | Powers `Home.md`, `Capture.md`, `Brain.md` via DataviewJS |
+| **Enable DataviewJS** in Dataview settings | Dashboards execute JS layouts |
+| **CSS snippet `zephyr-dashboard`** | Layout/styles for the bento dashboard (`System/zephyr-dashboard.css` → `.obsidian/snippets/`) |
+
+Install Dataview from Obsidian → Settings → Community plugins. This template does **not** vendor plugin binaries in git.
+
+### Optional (personal preference — not required, not tracked)
+
+These are fine for a personal vault but are **not** part of the Zephyr template:
+
+- Templater
+- Calendar
+- Obsidian Git
+- Excalidraw
+- QuickAdd
+- Icon Folder
+- any other community plugins
+
+Plugin folders under `.obsidian/plugins/**` are gitignored so personal tastes do not land on GitHub.
+
+---
+
+## 5-Minute Quickstart
+
+**Recommended workflow:** keep this GitHub repo as a **template**, and install your personal second brain to the default vault path `~/Obsidian/Zephyr`. That keeps personal notes and secrets out of git by design.
+
+### Option A — Default install to `~/Obsidian/Zephyr` (recommended)
+
+```bash
+# 1) Install deps (from this repo)
+python3 -m pip install -r requirements.txt
+
+# 2) Initialize personal vault at ~/Obsidian/Zephyr
+#    (copies templates/scripts, writes System/config.json, enables Dataview/CSS flags)
+python3 init-zephyr.py
+
+# 3) Build the index (no API key required)
+python3 ~/Obsidian/Zephyr/System/zephyr-worker.py index
+
+# 4) Start the background watcher from the personal vault
+cd ~/Obsidian/Zephyr
+./run-watcher.sh
+# Windows: run-watcher.bat
+```
+
+Open `~/Obsidian/Zephyr` as an Obsidian vault, then:
+1. Install/enable **Dataview** and turn on **Enable DataviewJS**.
+2. Enable CSS snippet **zephyr-dashboard** in Settings → Appearance → CSS Snippets.
+3. Open `Home.md`.
+
+Optional: put personal defaults in repo-root `config_local.json` (gitignored) before running `init-zephyr.py`; they will be copied into the personal vault's `System/config.json`.
+
+### Option B — Use this repo as the vault (`--here`)
+
+Only if you intentionally want the template checkout itself to act as the vault:
+
+```bash
+python3 init-zephyr.py --here
+python3 System/zephyr-worker.py index
+./run-watcher.sh
+```
+
+`--here` writes gitignored `System/config.json` only; it does **not** rewrite tracked `AGENTS.md` / `GEMINI.md` with personal names.
+
+### Optional: AI classification
+
+In the **personal vault**, edit `System/config.json` (created by init) and set a real `ai_api_key`.
+Or copy from the template: `System/config.example.json` → personal vault `System/config.json`.
+Without a key, the worker still indexes, heals links, and uses offline heuristics.
+
+### Privacy note (important for GitHub)
+
+This repo is a **template**, not a personal vault dump:
+- Personal second brain lives at `~/Obsidian/Zephyr` (default) and should stay off the public remote.
+- Tracked in the template: dashboards (`Home.md`, `Capture/Capture.md`, `Brain/Brain.md`), templates, skills, scripts, minimal `.obsidian` config + `zephyr-dashboard` CSS.
+- Gitignored: `System/config.json`, `config_local.json`, personal notes under `Capture/**` and `Brain/**` (except the two dashboards), `System/index.json`, `IDEA.md`, and **all** `.obsidian/plugins/**` binaries.
+- `AGENTS.md` / `GEMINI.md` stay as `{{placeholder}}` templates so personal names never leak into git.
+
+---
+
+## Positioning
+
+- **Lightweight & Invisible**: no forced folder micro-management.
+- **Hermes-Agent Native**: clean frontmatter + `System/index.json` context cache.
+- **Local-First & Plain-Text**: Markdown + flat wikilinks (`[[Note Name]]`).
+- **Capture-First, Classify-Later**: humans dump thoughts; workers/agents organize.
+- **Active Growth**: dream-mode (nightly) and slow-mode (weekly) skills for healing and review.
+
+---
+
+## Vault Layout
 
 ```
 Zephyr/
-├── Capture/          # The Ingestion Inbox
-│   ├── YYYY-MM-DD.md # Daily logs, task tracking, and quick captures
-│   └── *.md          # Raw clippings, thoughts, book excerpts
-├── Brain/            # The Permanent Knowledge Base
-│   ├── Brain.md      # The central entry portal dashboard
-│   └── *.md          # Active projects, Evergreen notes, Knowledge Areas, and MOCs
-└── System/           # Configuration, Routines, and Automation
-    ├── Archive/      # Archived and completed projects
-    ├── skills/       # AI agent routines (Dream Mode, Slow Mode, etc.)
-    ├── templates/    # Templates for notes, projects, logs, and sources
-    ├── index.json    # The local metadata index cache
-    └── zephyr-*      # Local background scripts (watcher, worker)
+├── Capture/          # Inbox + daily logs
+├── Brain/            # Projects, evergreen notes, areas, MOCs
+└── System/           # Config, templates, skills, index, scripts
+    ├── DESIGN.md     # Design system (binding for dashboards/CSS)
+    ├── index.json    # Compiled metadata cache
+    ├── skills/       # Agent routines
+    ├── templates/
+    └── zephyr-*.py   # Watcher + worker
 ```
 
 ---
 
-## ⚙️ Automation & Routines
+## Automation
 
-Zephyr is powered by a local Python daemon and periodic AI Agent routines:
-
-1. **Local Watcher & Worker** (`zephyr-watcher.py` & `zephyr-worker.py`):
-   - Runs in the background (via `run-watcher.bat`).
-   - Automatically processes new files in `Capture/`, applies standard metadata templates, fixes internal case-mismatched links, compiles `System/index.json`, and handles git auto-commits.
-2. **Dream Mode (Nightly)**:
-   - Evaluates notes modified in the last 24 hours.
-   - Suggests semantic connections under `## Suggested Connections` without altering human-written content.
-   - Automatically drafts Map of Contents (MOCs) when clusters of related notes emerge.
-3. **Slow Mode (Weekly Review)**:
-   - Runs every Monday morning.
-   - Audits vault health (orphan notes, broken links).
-   - Generates a high-level project briefing, highlights deadlines, and posts updates to the configured Discord channel.
+1. **Watcher / Worker** (`zephyr-watcher.py`, `zephyr-worker.py`)
+   - Watches `Capture/` + `Brain/`
+   - Classifies unclassified notes (LLM or offline fallback)
+   - Compiles `System/index.json`
+   - Heals case-mismatched wikilinks
+   - Optional git auto-commit / pull --rebase / push
+2. **Dream Mode (nightly skill)**: suggest connections; draft MOCs.
+3. **Slow Mode (weekly skill)**: vault health + project briefing.
 
 ---
 
-## ⚖️ Governance Model
+## Governance
 
-To balance AI autonomy with user control over their knowledge base, Zephyr follows a strict three-tier governance system:
-
-- **`AUTO` (Automated Actions)**: AI can automatically classify notes from `Capture/` to `Brain/`, add standard tags, heal broken links, compile index metadata, and commit changes to Git.
-- **`PROPOSE` (Review Needed)**: For destructive or body-modifying actions—such as deleting files, changing project statuses/deadlines, or editing human-written text—the AI must generate a draft proposal (suffix `-- draft.md`) or ask for user confirmation.
-- **`NEVER` (Strictly Prohibited)**: AI is forbidden from modifying `.obsidian/` configuration files, exposing API keys/secrets, or altering Git commits older than the current session branch.
+- **AUTO**: classify Capture → Brain, standard tags, index compile, link heal, git sync.
+- **PROPOSE**: deletes, body edits of human prose, status/deadline changes (use `-- draft.md`).
+- **NEVER**: touch secrets, rewrite old git history, or casually mutate `.obsidian/` outside init.
 
 ---
 
-## 🚀 Setup & Prerequisites
+## Daily Loop
 
-1. **Obsidian Integration**:
-   - Install the **Dataview** community plugin and enable **Enable DataviewJS** in settings.
-   - Copy `System/zephyr-dashboard.css` into your Obsidian CSS snippets folder and activate it under `Settings -> Appearance -> CSS Snippets`.
-2. **Background Automation**:
-   - Run `run-watcher.bat` to launch the file watcher that monitors the `Capture/` directory for incoming thoughts.
+1. Open `Home.md` or press **Today's Log**.
+2. Capture bullets under `## Capture` (`- idea: ...`).
+3. Let the watcher/worker classify and index.
+4. Expand promising ideas with `System/skills/idea-expansion.md`.
 
----
-
-## 📖 Vault Documentation
-
-Explore the detailed manuals inside the `docs/` folder:
-- 💡 **[Zephyr Philosophy & Positioning](./docs/philosophy-and-positioning.md)**: Flow-first design principles.
-- ⚙️ **[Technical Architecture Manual](./docs/architecture.md)**: Script interactions and `index.json` details.
-- 🎯 **[Project Management Guide](./docs/project-management.md)**: Setting up and automating project lifecycles.
+Chinese README: [README-ZH.md](./README-ZH.md)

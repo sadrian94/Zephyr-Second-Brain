@@ -5,11 +5,11 @@ tags: [concept]
 ---
 # Note Title
 
-## 📝 Context
+## Context
 Background information or brief summary.
 
-## 🔍 Details
+## Details
 Detailed notes, data, or thoughts.
 
-## 🔗 Connections
+## Connections
 - [[Related Note]]

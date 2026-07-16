@@ -9,12 +9,12 @@ tags: [agent, skill, maintenance]
 
 This skill defines the nightly routine executed by the primary agent to consolidate knowledge, optimize link relationships, and heal metadata.
 
-## 🎯 Objectives
+## Objectives
 - Maintain clean cross-references across all markdown notes in `Brain/`.
 - Compile semantic associations and suggest emerging project boundaries.
 - Keep the local flat database index synchronized and perform index verification.
 
-## 📋 Execution Protocol
+## Execution Protocol
 1.  **Index Validation**:
     *   Inspect `System/index.json` to verify it matches the files in the directory.
     *   If index inconsistencies are found, trigger the local index compilation.
@@ -22,7 +22,7 @@ This skill defines the nightly routine executed by the primary agent to consolid
     *   Scan all notes in `Brain/` that have been modified within the last 24 hours.
     *   Compare note text against titles of other notes listed in `System/index.json`.
     *   If a note body contains a reference to another note's title but lacks a `[[Note Name]]` wikilink:
-        *   **Propose Link**: Append a recommended link section at the bottom under a `## 🔗 Suggested Connections` header.
+        *   **Propose Link**: Append a recommended link section at the bottom under a `## Suggested Connections` header.
         *   Do not overwrite existing user-authored text.
 3.  **Topic Cluster Detection**:
     *   Group notes sharing similar tags or tags matching `#area/...`.

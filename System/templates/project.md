@@ -9,14 +9,14 @@ tags: [project]
 ---
 # Project Name
 
-## 🎯 Goals
+## Goals
 - [ ] Goal 1
 
-## 📋 Tasks
+## Tasks
 - [ ] Task 1
 
-## 📝 Context
+## Context
 Provide background context and references.
 
-## 🔄 Log
+## Log
 - **YYYY-MM-DD**: Project initialized.

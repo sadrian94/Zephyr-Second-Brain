@@ -4,14 +4,15 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Local Obsidian workspace state
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
-
-# Local configurations
+# Secrets & local machine config — never commit
 config_local.json
+System/config.json
+AGENTS.local.md
+GEMINI.local.md
 .env
 .env.*
+*.pem
+*.key
 
 # Agent custom files & superpowers plugin configurations
 .agents/
@@ -19,5 +20,38 @@ superpower/
 superpowers/
 .superpowers/
 
-# Vault secrets — never commit your config.json
-System/config.json
+# Personal vault content (local notes must stay off GitHub)
+# Keep only dashboards tracked: Capture/Capture.md, Brain/Brain.md
+Capture/**
+!Capture/Capture.md
+Brain/**
+!Brain/Brain.md
+
+# Runtime / derived / personal scratch
+IDEA.md
+System/index.json
+System/Archive/**
+!System/Archive/
+!System/Archive/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Obsidian
+# Template ships minimal config + the Zephyr dashboard CSS snippet.
+# Community plugin *binaries* and personal plugin data stay local.
+# Required plugin for dashboards: Dataview (install from Community Plugins).
+# Optional personal plugins (Templater, Calendar, Git, Excalidraw, QuickAdd,
+# Icon Folder, etc.) are intentionally not tracked.
+# ---------------------------------------------------------------------------
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/graph.json
+.obsidian/bookmarks.json
+.obsidian/plugins/**
+# Keep only the dashboard snippet in-repo (source of truth also in System/)
+# Personal/local CSS experiments under snippets are ignored except zephyr-dashboard
+.obsidian/snippets/*
+!.obsidian/snippets/zephyr-dashboard.css
+
+# OS junk
+.DS_Store
+Thumbs.db

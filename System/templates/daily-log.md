@@ -19,7 +19,7 @@ if (currentDate.isValid()) {
     });
     
     const prevLink = container.createEl("a", { 
-        text: `← ${prevDate}`, 
+        text: `\u2190 ${prevDate}`, 
         href: prevDate, 
         cls: "internal-link",
         attr: { style: "text-decoration: none; color: var(--text-muted);" }
@@ -28,7 +28,7 @@ if (currentDate.isValid()) {
     prevLink.addEventListener("mouseleave", () => prevLink.style.color = "var(--text-muted)");
     
     const nextLink = container.createEl("a", { 
-        text: `${nextDate} →`, 
+        text: `${nextDate} \u2192`, 
         href: nextDate, 
         cls: "internal-link",
         attr: { style: "text-decoration: none; color: var(--text-muted);" }
@@ -38,14 +38,14 @@ if (currentDate.isValid()) {
 }
 ```
 
-## 🎯 Focus
+## Focus
 - Today's top priority task.
 
-## 🏆 Wins
+## Wins
 - Log wins and progress here.
 
-## 📥 Capture
+## Capture
 Capture raw thoughts, links, and ideas here. The agent will parse these in the background.
 
-## 🔄 Log
+## Log
 - **10:00**: Event or task log.

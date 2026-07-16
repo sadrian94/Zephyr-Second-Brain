@@ -9,17 +9,17 @@ tags: [agent, skill, reporting]
 
 This skill defines the strategic weekly reviews and briefings performed by the primary agent every Monday morning.
 
-## 🎯 Objectives
+## Objectives
 - Provide a high-level executive summary of project progress, upcoming deadlines, and task velocities.
 - Audit vault health and list orphaned items.
 - Update lifestyle schedules and coordinate notifications.
 
-## 📋 Execution Protocol
+## Execution Protocol
 1.  **Weekly Briefing Generation**:
     *   Scan all active projects in `System/index.json` (`status: active`).
     *   Examine deadlines and calculate days remaining:
-        *   Flag any projects with deadlines within 7 days as `[🔥 HIGH RISK]`.
-        *   Flag overdue projects as `[⚠️ OVERDUE]`.
+        *   Flag any projects with deadlines within 7 days as `[HIGH RISK]`.
+        *   Flag overdue projects as `[OVERDUE]`.
     *   Scan daily logs from the past week (`Capture/*.md` with `type: log`) to compile completed tasks (wins).
     *   Format a clean markdown report containing:
         *   **Weekly Highlights**: Key tasks completed.

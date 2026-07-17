@@ -69,6 +69,16 @@ Open `~/Obsidian/Zephyr` as an Obsidian vault, then:
 
 Optional: put personal defaults in repo-root `config_local.json` (gitignored) before running `init-zephyr.py`; they will be copied into the personal vault's `System/config.json`.
 
+### Update an existing vault safely
+
+Develop system changes in this template repo, then update the personal vault from the repo root:
+
+```bash
+python3 init-zephyr.py --update
+```
+
+`--update` refreshes Zephyr-owned assets only: the watcher/worker launchers, `System/` scripts, design/CSS, skills, templates, and the three dashboards (`Home.md`, `Capture/Capture.md`, `Brain/Brain.md`). It preserves `System/config.json`, all other personal notes in `Capture/` and `Brain/`, community-plugin binaries, and existing Obsidian preferences. It then rebuilds `System/index.json`.
+
 ### Option B — Use this repo as the vault (`--here`)
 
 Only if you intentionally want the template checkout itself to act as the vault:

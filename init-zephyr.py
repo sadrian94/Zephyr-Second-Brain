@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import subprocess
 import re
 import sys
 
@@ -149,9 +150,84 @@ def enable_obsidian_plugins(vault_dir):
     except Exception as e:
         log(f"Failed to enable CSS snippet: {e}")
 
+UPDATE_FILES = {
+    "run-watcher.sh",
+    "run-watcher.bat",
+    "Home.md",
+    "Capture/Capture.md",
+    "Brain/Brain.md",
+    "System/DESIGN.md",
+    "System/rules.md",
+    "System/zephyr-dashboard.css",
+    "System/zephyr-watcher.py",
+    "System/zephyr-worker.py",
+}
+UPDATE_DIRECTORIES = ("System/skills", "System/templates")
+TEXT_FILE_EXTENSIONS = (".md", ".json", ".py", ".css", ".sh", ".bat", ".txt")
+
+
+def copy_template_file(src_file, dest_file, config):
+    ensure_dir(os.path.dirname(dest_file))
+    if src_file.endswith(TEXT_FILE_EXTENSIONS):
+        with open(src_file, "r", encoding="utf-8") as source_file:
+            content = apply_replacements(source_file.read(), config)
+        with open(dest_file, "w", encoding="utf-8") as destination_file:
+            destination_file.write(content)
+        shutil.copymode(src_file, dest_file)
+    else:
+        shutil.copy2(src_file, dest_file)
+
+
+def update_vault(vault_dir):
+    config_path = os.path.join(vault_dir, "System", "config.json")
+    if not os.path.isfile(config_path):
+        raise SystemExit("[Init] --update requires an initialized vault with System/config.json. Run init-zephyr.py first.")
+
+    config = load_or_create_config(vault_dir)
+    update_paths = set(UPDATE_FILES)
+    for directory in UPDATE_DIRECTORIES:
+        source_directory = os.path.join(WORKSPACE_DIR, directory)
+        if not os.path.isdir(source_directory):
+            continue
+        for root, _, files in os.walk(source_directory):
+            for filename in files:
+                update_paths.add(os.path.relpath(os.path.join(root, filename), WORKSPACE_DIR))
+
+    for relative_path in sorted(update_paths):
+        source_file = os.path.join(WORKSPACE_DIR, relative_path)
+        if not os.path.isfile(source_file):
+            continue
+        destination_file = os.path.join(vault_dir, relative_path)
+        copy_template_file(source_file, destination_file, config)
+        log(f"Updated system asset: {relative_path}")
+
+    src_css = os.path.join(vault_dir, "System", "zephyr-dashboard.css")
+    dest_css = os.path.join(vault_dir, ".obsidian", "snippets", "zephyr-dashboard.css")
+    if os.path.exists(src_css):
+        ensure_dir(os.path.dirname(dest_css))
+        shutil.copy2(src_css, dest_css)
+        log("Updated zephyr-dashboard.css snippet in Obsidian settings.")
+
+    enable_obsidian_plugins(vault_dir)
+    worker_path = os.path.join(vault_dir, "System", "zephyr-worker.py")
+    if os.path.isfile(worker_path):
+        result = subprocess.run([sys.executable, worker_path, "index"], check=False)
+        if result.returncode != 0:
+            raise SystemExit("[Init] --update copied assets but failed to rebuild System/index.json.")
+
+    log("Zephyr system update complete. Personal notes and System/config.json were not overwritten.")
+
+
 def main():
     here_mode = "--here" in sys.argv
+    update_mode = "--update" in sys.argv
+    if here_mode and update_mode:
+        raise SystemExit("[Init] --here and --update cannot be used together.")
+
     vault_dir = WORKSPACE_DIR if here_mode else DEFAULT_VAULT_DIR
+    if update_mode:
+        update_vault(vault_dir)
+        return
 
     log("Zephyr Second Brain (0.1.0) Initialization & Configuration Wizard")
     if here_mode:

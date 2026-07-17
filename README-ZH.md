@@ -69,6 +69,16 @@ cd ~/Obsidian/Zephyr
 
 可選：在 repo 根目錄先準備 gitignored 的 `config_local.json`，再跑 `init-zephyr.py`；內容會寫進個人 vault 的 `System/config.json`。
 
+### 安全更新既有 vault
+
+系統功能先在這個模板 repo 開發，再從 repo 根目錄更新個人 vault：
+
+```bash
+python3 init-zephyr.py --update
+```
+
+`--update` 只會更新 Zephyr 自己管理的資產：watcher/worker launcher、`System/` 內的腳本、設計/CSS、skills、templates，以及三個 dashboard（`Home.md`、`Capture/Capture.md`、`Brain/Brain.md`）。它會保留 `System/config.json`、`Capture/` 與 `Brain/` 中其餘個人筆記、社群外掛二進位與既有 Obsidian 偏好；最後會重建 `System/index.json`。
+
 ### 方案 B — 直接把這個 repo 當 vault（`--here`）
 
 只有在汝刻意要把模板 checkout 本身當 vault 時才用：

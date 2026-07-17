@@ -36,21 +36,8 @@ System/Archive/**
 
 # ---------------------------------------------------------------------------
 # Obsidian
-# Template ships minimal config + the Zephyr dashboard CSS snippet.
-# Community plugin *binaries* and personal plugin data stay local.
-# Required plugin for dashboards: Dataview (install from Community Plugins).
-# Optional personal plugins (Templater, Calendar, Git, Excalidraw, QuickAdd,
-# Icon Folder, etc.) are intentionally not tracked.
-# ---------------------------------------------------------------------------
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
-.obsidian/graph.json
-.obsidian/bookmarks.json
-.obsidian/plugins/**
-# Keep only the dashboard snippet in-repo (source of truth also in System/)
-# Personal/local CSS experiments under snippets are ignored except zephyr-dashboard
-.obsidian/snippets/*
-!.obsidian/snippets/zephyr-dashboard.css
+.obsidian/
+
 
 # OS junk
 .DS_Store

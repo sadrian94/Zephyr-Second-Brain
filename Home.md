@@ -4,7 +4,7 @@ tags: [dashboard]
 cssclasses: [dashboard]
 ---
 ```dataviewjs
-const currentFile = dv.current().file.name;
+const currentFile = dv.current()?.file?.name || "";
 const headerContainer = dv.container.createEl("div", { cls: "nav-header-container" });
 
 const navContainer = headerContainer.createEl("div", { cls: "nav-header" });
@@ -21,6 +21,20 @@ for (let link of links) {
         cls: `internal-link${isCurrent ? " active" : ""}`
     });
 }
+
+// Intercept all internal link clicks to ensure they open correctly in Obsidian
+dv.container.addEventListener("click", (e) => {
+    const link = e.target.closest("a");
+    if (!link) return;
+    const href = link.getAttribute("data-href") || link.getAttribute("href");
+    if (!href) return;
+    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("app://") || href.startsWith("#")) {
+        return;
+    }
+    e.preventDefault();
+    const currentPath = dv.current()?.file?.path || "";
+    app.workspace.openLinkText(href, currentPath, false);
+});
 
 const todayBtn = headerContainer.createEl("button", {
     text: "Today's Log",
@@ -111,12 +125,21 @@ if (projects.length > 0) {
     let projectGridHtml = `<div class="project-grid">`;
     for (let p of projects) {
         const priorityClass = `priority-${p.priority || 'medium'}`;
+        let deadlineStr = 'No deadline';
+        if (p.deadline) {
+            if (typeof p.deadline.toFormat === 'function') {
+                deadlineStr = p.deadline.toFormat('yyyy-MM-dd');
+            } else {
+                const match = String(p.deadline).match(/^(\d{4}-\d{2}-\d{2})/);
+                deadlineStr = match ? match[1] : String(p.deadline);
+            }
+        }
         projectGridHtml += `
         <div class="project-card">
             <div class="project-title"><a href="${p.file.path}">${p.file.name}</a></div>
             <div class="project-meta">
                 <span class="badge ${priorityClass}">${p.priority || 'medium'}</span>
-                <span class="deadline">${svgIcons.calendar} ${p.deadline || 'No deadline'}</span>
+                <span class="deadline">${svgIcons.calendar} ${deadlineStr}</span>
             </div>
         </div>`;
     }
@@ -188,15 +211,27 @@ if (logs.length > 0) {
         
         const grid = details.createEl("div", { cls: "log-row", attr: { style: "margin-top: 10px;" } });
         for (let l of monthLogs) {
-            grid.createEl("div", { 
-                cls: "log-tile",
-                innerHTML: `<a href="${l.file.path}">${l.file.name}</a>` 
-            });
+            const tile = grid.createEl("div", { cls: "log-tile" });
+            tile.innerHTML = `<a href="${l.file.path}">${l.file.name}</a>`;
         }
     }
 } else {
     rightColumn.createEl("p").innerHTML = "*No logs found.*";
 }
+
+// Intercept all internal link clicks to ensure they open correctly in Obsidian
+dv.container.addEventListener("click", (e) => {
+    const link = e.target.closest("a");
+    if (!link) return;
+    const href = link.getAttribute("data-href") || link.getAttribute("href");
+    if (!href) return;
+    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("app://") || href.startsWith("#")) {
+        return;
+    }
+    e.preventDefault();
+    const currentPath = dv.current()?.file?.path || "";
+    app.workspace.openLinkText(href, currentPath, false);
+});
 ```
 
 <div class="system-status-bar">

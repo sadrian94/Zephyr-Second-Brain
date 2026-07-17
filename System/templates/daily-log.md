@@ -6,35 +6,51 @@ tags: [daily]
 # Daily Log — YYYY-MM-DD
 
 ```dataviewjs
-const currentFile = dv.current().file.name;
-const dateFormat = ['YYYY', 'MM', 'DD'].join('-');
-const currentDate = moment(currentFile, dateFormat);
-if (currentDate.isValid()) {
-    const prevDate = currentDate.clone().subtract(1, 'days').format(dateFormat);
-    const nextDate = currentDate.clone().add(1, 'days').format(dateFormat);
-    
-    const container = dv.container.createEl("div", { 
-        cls: "log-navigation",
-        attr: { style: "display: flex; justify-content: space-between; font-family: var(--zephyr-font-mono); font-size: 0.85em; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 8px; margin-bottom: 24px; margin-top: 12px;" }
-    });
-    
-    const prevLink = container.createEl("a", { 
-        text: `\u2190 ${prevDate}`, 
-        href: prevDate, 
-        cls: "internal-link",
-        attr: { style: "text-decoration: none; color: var(--text-muted);" }
-    });
-    prevLink.addEventListener("mouseenter", () => prevLink.style.color = "var(--interactive-accent)");
-    prevLink.addEventListener("mouseleave", () => prevLink.style.color = "var(--text-muted)");
-    
-    const nextLink = container.createEl("a", { 
-        text: `${nextDate} \u2192`, 
-        href: nextDate, 
-        cls: "internal-link",
-        attr: { style: "text-decoration: none; color: var(--text-muted);" }
-    });
-    nextLink.addEventListener("mouseenter", () => nextLink.style.color = "var(--interactive-accent)");
-    nextLink.addEventListener("mouseleave", () => nextLink.style.color = "var(--text-muted)");
+const currentFile = dv.current()?.file?.name;
+if (currentFile) {
+    const dateFormat = ['YYYY', 'MM', 'DD'].join('-');
+    const currentDate = moment(currentFile, dateFormat);
+    if (currentDate.isValid()) {
+        const prevDate = currentDate.clone().subtract(1, 'days').format(dateFormat);
+        const nextDate = currentDate.clone().add(1, 'days').format(dateFormat);
+        
+        const container = dv.container.createEl("div", { 
+            cls: "log-navigation",
+            attr: { style: "display: flex; justify-content: space-between; font-family: var(--zephyr-font-mono); font-size: 0.85em; border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 8px; margin-bottom: 24px; margin-top: 12px;" }
+        });
+        
+        const prevLink = container.createEl("a", { 
+            text: `\u2190 ${prevDate}`, 
+            href: prevDate, 
+            cls: "internal-link",
+            attr: { style: "text-decoration: none; color: var(--text-muted);" }
+        });
+        prevLink.addEventListener("mouseenter", () => prevLink.style.color = "var(--interactive-accent)");
+        prevLink.addEventListener("mouseleave", () => prevLink.style.color = "var(--text-muted)");
+        
+        const nextLink = container.createEl("a", { 
+            text: `${nextDate} \u2192`, 
+            href: nextDate, 
+            cls: "internal-link",
+            attr: { style: "text-decoration: none; color: var(--text-muted);" }
+        });
+        nextLink.addEventListener("mouseenter", () => nextLink.style.color = "var(--interactive-accent)");
+        nextLink.addEventListener("mouseleave", () => nextLink.style.color = "var(--text-muted)");
+        
+        // Intercept clicks to ensure navigation works
+        dv.container.addEventListener("click", (e) => {
+            const link = e.target.closest("a");
+            if (!link) return;
+            const href = link.getAttribute("data-href") || link.getAttribute("href");
+            if (!href) return;
+            if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("app://") || href.startsWith("#")) {
+                return;
+            }
+            e.preventDefault();
+            const currentPath = dv.current()?.file?.path || "";
+            app.workspace.openLinkText(href, currentPath, false);
+        });
+    }
 }
 ```
 

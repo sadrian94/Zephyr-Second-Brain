@@ -1,7 +1,7 @@
 {
-    "enabledCssSnippets": [
-        "zephyr-dashboard"
-    ],
-    "cssTheme": "",
-    "theme": "moonstone"
+  "enabledCssSnippets": [
+    "zephyr-dashboard"
+  ],
+  "cssTheme": "",
+  "theme": "moonstone"
 }

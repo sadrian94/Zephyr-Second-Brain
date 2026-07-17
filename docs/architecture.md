@@ -17,14 +17,16 @@ graph TD
     end
 
     subgraph LocalEngine [⚙️ Local Python Engine - Event-Driven]
-        Watcher[👁️ zephyr-watcher.py] -->|Trigger on File Event| Worker[🔧 zephyr-worker.py]
-        Worker -->|1. Normalization & Sorting| StorageLayer
-        Worker -->|2. Case-Mismatch Link Healing| StorageLayer
-        Worker -->|3. Compile Data| IndexFile[📄 System/index.json]
+        Watcher[👁️ zephyr-watcher.py] -->|Trigger on File Event| Worker[🔧 zephyr-worker.py index]
+        Worker -->|1. Case-Mismatch Link Healing| StorageLayer
+        Worker -->|2. Compile Data| IndexFile[📄 System/index.json]
     end
 
     subgraph AgentSpace [🤖 Hermes-Agent Sandbox]
         IndexFile -->|Read Mind Map| Hermes[Hermes-Agent]
+        Hermes -->|Scheduled Inbox Triage| Inbox[📥 inbox-triage.md]
+        Inbox -->|Classify eligible captures| StorageLayer
+        Inbox -->|Rebuild index| Worker
         Hermes -->|Nightly Dream Mode| Dream[🌙 Semantic Linkage & MOC Drafting]
         Hermes -->|Weekly Slow Mode| Slow[🗓️ Health Audit & Status Webhook]
         
@@ -96,25 +98,19 @@ Every note must begin with a YAML Frontmatter block. Zephyr defines three core n
 The local engine handles all format sorting and index compilation silently. It is launched via the Windows batch file `run-watcher.bat`:
 
 ### 3.1 `zephyr-watcher.py` (File Event Watcher)
-* **Mechanism**: Uses the Python `watchdog` library (or directory polling) to monitor the `Capture/` folder in real-time.
-* **Trigger**: When a file is created or written to (i.e. user completes save), it calls `zephyr-worker.py`.
+* **Mechanism**: Uses the Python `watchdog` library (or directory polling) to monitor `Capture/` and `Brain/` in real-time.
+* **Trigger**: When a Markdown file changes, it calls `zephyr-worker.py index` after debounce.
 * **Resource Cost**: Watcher runs passively as an event-driven daemon, keeping CPU and memory overhead near 0.
 
 ### 3.2 `zephyr-worker.py` (Core Worker)
-Upon activation, the Worker executes the following tasks in sequence:
-1. **Metadata Normalization**: Scans new files and adds missing frontmatter attributes.
-2. **Auto-sorting & Classification**:
-   * If a note in `Capture/` is marked `type: project` and `status: active`, it is moved to `Brain/`.
-   * If a note in `Capture/` is marked `type: note` (and is not a draft or log), it is moved to `Brain/`.
-3. **Case-Mismatch Link Healing**:
+The worker performs deterministic local maintenance only:
+1. **Case-Mismatch Link Healing**:
    * Scans markdown text for WikiLinks `[[Note Name]]`.
    * Cross-references titles in the vault to heal discrepancies (e.g., auto-updates `[[intelligent-routing]]` -> `[[Intelligent-Routing]]`).
-4. **Physical Project Archiving**:
-   * Scans projects in `Brain/` marked as `status: completed` or `status: archived`.
-   * Moves these physical files to `System/Archive/` to keep the active directory clean.
-5. **Brain Map Indexing (`System/index.json`)**:
+2. **Brain Map Indexing (`System/index.json`)**:
    * Scans all active files and compiles title structures, tags, modifications times, first-paragraph summaries, and in/out WikiLink relationships.
    * Compiles this data into a single, compact JSON index cache.
+3. **Explicit Git Sync**: `python3 System/zephyr-worker.py sync` is the only mode that may commit, pull with rebase, and push.
 
 #### 📄 Example `System/index.json` Schema:
 ```json
@@ -149,7 +145,16 @@ Upon activation, the Worker executes the following tasks in sequence:
 
 AI agents (like Hermes-agent) rely completely on `System/index.json` to load context, simplifying token consumption.
 
-### 4.1 Nightly Link Weaving: Dream Mode
+### 4.1 Scheduled Inbox Triage
+* **Frequency**: A Hermes cron job, typically every 5 minutes.
+* **Workflow**:
+  1. Hermes reads `System/skills/inbox-triage.md` and processes only eligible unclassified Capture notes.
+  2. It preserves human-authored body text, adds the fixed frontmatter schema, and moves confident `note` / `project` results to `Brain/`.
+  3. Ambiguous notes remain in `Capture/` with `triage_status: needs_review`.
+  4. Hermes runs `python3 System/zephyr-worker.py index` after any processing.
+* **Authentication**: Hermes uses its configured provider or OAuth; Zephyr does not store a direct LLM API key for this path.
+
+### 4.2 Nightly Link Weaving: Dream Mode
 * **Frequency**: Triggered nightly.
 * **Workflow**:
   1. AI reads `index.json` and scans note bodies modified within the past 24 hours.
@@ -161,7 +166,7 @@ AI agents (like Hermes-agent) rely completely on `System/index.json` to load con
      ```
   4. **Topic Cluster Detection**: If 3 or more unlinked notes share a new concept, AI drafts a proposed Map of Contents note (`MOC - <Topic> -- draft.md`) in `Capture/`.
 
-### 4.2 Weekly Auditing & Alerting: Slow Mode
+### 4.3 Weekly Auditing & Alerting: Slow Mode
 * **Frequency**: Runs every Monday morning.
 * **Workflow**:
   1. AI scans `index.json` for active projects (`status: active`).
@@ -181,7 +186,7 @@ AI agents (like Hermes-agent) rely completely on `System/index.json` to load con
                     │
                     ├──> (Rejects Proposal) ──> Delete draft or edit manually
                     │
-                    └──> (Accepts Proposal) ──> Remove `-- draft` suffix ──> Worker auto-moves to Brain/
+                    └──> (Accept Proposal) ──> Remove `-- draft` suffix ──> Hermes inbox triage handles it on its next run
 ```
 
 ---

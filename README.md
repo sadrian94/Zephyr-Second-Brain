@@ -5,9 +5,10 @@
 Deep dives:
 - [Philosophy & Positioning](./docs/philosophy-and-positioning.md)
 - [Architecture](./docs/architecture.md)
+- [Hermes Cron Inbox Triage](./docs/hermes-cron.md)
 - [Project Management](./docs/project-management.md)
 
-Zephyr keeps you in capture flow. Local workers and agents handle classification, linking, indexing, and maintenance.
+Zephyr keeps you in capture flow. Hermes handles semantic inbox triage through its configured provider; local workers handle deterministic indexing, link healing, and maintenance.
 
 ---
 
@@ -91,11 +92,9 @@ python3 System/zephyr-worker.py index
 
 `--here` writes gitignored `System/config.json` only; it does **not** rewrite tracked `AGENTS.md` / `GEMINI.md` with personal names.
 
-### Optional: AI classification
+### Optional: Hermes inbox triage
 
-In the **personal vault**, edit `System/config.json` (created by init) and set a real `ai_api_key`.
-Or copy from the template: `System/config.example.json` → personal vault `System/config.json`.
-Without a key, the worker still indexes, heals links, and uses offline heuristics.
+Zephyr does not require a direct model API key in `System/config.json`. Configure a Hermes cron job in the profile that already has your preferred provider or OAuth session, set its `workdir` to the personal vault root, and require it to read `System/skills/inbox-triage.md` before acting. The local worker remains available without Hermes for indexing and link healing.
 
 ### Privacy note (important for GitHub)
 
@@ -137,12 +136,12 @@ Zephyr/
 
 1. **Watcher / Worker** (`zephyr-watcher.py`, `zephyr-worker.py`)
    - Watches `Capture/` + `Brain/`
-   - Classifies unclassified notes (LLM or offline fallback)
    - Compiles `System/index.json`
    - Heals case-mismatched wikilinks
-   - Optional git auto-commit / pull --rebase / push
-2. **Dream Mode (nightly skill)**: suggest connections; draft MOCs.
-3. **Slow Mode (weekly skill)**: vault health + project briefing.
+   - Runs git sync only through the explicit `python3 System/zephyr-worker.py sync` command
+2. **Hermes Inbox Triage (scheduled skill)**: classifies eligible raw captures using Hermes's configured provider, preserves body text, and indexes the result.
+3. **Dream Mode (nightly skill)**: suggest connections; draft MOCs.
+4. **Slow Mode (weekly skill)**: vault health + project briefing.
 
 ---
 
@@ -158,7 +157,7 @@ Zephyr/
 
 1. Open `Home.md` or press **Today's Log**.
 2. Capture bullets under `## Capture` (`- idea: ...`).
-3. Let the watcher/worker classify and index.
+3. Let the Hermes inbox triage cron classify eligible captures; the worker indexes and heals links.
 4. Expand promising ideas with `System/skills/idea-expansion.md`.
 
 Chinese README: [README-ZH.md](./README-ZH.md)

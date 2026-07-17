@@ -40,7 +40,8 @@ If `System/config.json` exists, its values override unresolved `{{placeholders}}
 | Task | Command / action |
 |------|------------------|
 | Rebuild index + heal links | `python3 System/zephyr-worker.py index` |
-| Classify inbox + index + git sync | `python3 System/zephyr-worker.py` |
+| Triage inbox | Follow `System/skills/inbox-triage.md` through Hermes, then run `python3 System/zephyr-worker.py index` |
+| Explicit git sync | `python3 System/zephyr-worker.py sync` |
 | Watch Capture/Brain | `./run-watcher.sh` |
 | Expand ideas | `System/skills/idea-expansion.md` |
 | Maintenance | `System/skills/vault-maintenance.md` |
@@ -66,7 +67,7 @@ If `System/config.json` exists, its values override unresolved `{{placeholders}}
 
 ## 3. Capture-First, Classify-Later
 
-Human captures → worker classifies/indexes → agent expands via skills without destroying raw text.
+Human captures → Hermes triages eligible inbox notes via `System/skills/inbox-triage.md` → worker indexes and heals links → agents expand via skills without destroying raw text.
 
 ## 4. Wikilink & Naming
 

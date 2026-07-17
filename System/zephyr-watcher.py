@@ -19,10 +19,14 @@ def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] [Watcher] {msg}")
 
 def run_worker():
-    log("Triggering zephyr-worker.py...")
+    log("Triggering zephyr-worker.py index...")
     try:
-        # Run worker with python
-        result = subprocess.run([sys.executable, WORKER_PATH], capture_output=True, text=True, encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, WORKER_PATH, "index"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
         if result.stdout:
             for line in result.stdout.splitlines():
                 if line.strip():

@@ -2,7 +2,7 @@
 type: skill
 agent: "{{primary_agent_name}}"
 frequency: scheduled
-requires_api: false
+requires_hermes: false
 tags: [agent, skill, reminders]
 ---
 # Skill: Lifestyle Reminders & Discord Webhooks

@@ -49,14 +49,15 @@ If `System/config.json` exists, its values override unresolved `{{placeholders}}
 | Task | Command / action |
 |------|------------------|
 | Rebuild index + heal links | `python3 System/zephyr-worker.py index` |
-| Classify inbox + index + git sync | `python3 System/zephyr-worker.py` or `fast` |
+| Triage unclassified inbox | Follow `System/skills/inbox-triage.md` through Hermes, then run `python3 System/zephyr-worker.py index` |
+| Explicit git sync | `python3 System/zephyr-worker.py sync` |
 | Watch Capture/Brain | `./run-watcher.sh` (or `python3 System/zephyr-watcher.py`) |
 | Expand raw ideas | Follow `System/skills/idea-expansion.md` (PROPOSE via `-- draft.md`) |
 | Nightly consolidation | `System/skills/dream-mode.md` |
 | Weekly briefing | `System/skills/slow-mode.md` |
 | Health / archive | `System/skills/vault-maintenance.md` |
 
-API key in `System/config.json` is optional for index/heal/git; required for LLM classify and most agent skills marked `requires_api: true`. Offline worker fallback still classifies without a key.
+Hermes handles model authentication through its configured provider or OAuth. `System/config.json` must not contain a direct LLM API key for inbox triage. Routines marked `requires_hermes: true` need a Hermes model session; local index and link-healing commands do not.
 
 ---
 
@@ -81,7 +82,8 @@ Every note needs frontmatter with `type`:
 ## 3. Capture-First, Classify-Later
 
 * **Human**: dumps thoughts into `Capture/` or daily log `## Capture` (`- idea: ...`)
-* **Worker**: `zephyr-worker.py` classifies, templates, indexes, heals links
+* **Hermes**: follows `System/skills/inbox-triage.md` to classify eligible raw captures without rewriting their body text
+* **Worker**: `zephyr-worker.py index` compiles metadata and heals links; `sync` is explicit
 * **Agent**: cultivates ideas via `System/skills/idea-expansion.md` without destroying raw capture
 
 ## 4. Wikilink & Naming
@@ -91,14 +93,14 @@ Every note needs frontmatter with `type`:
 
 ## 5. Governance Model
 
-* **AUTO**: classify Capture → Brain, standard tags, compile `System/index.json`, heal broken/case-mismatched links, local worker maintenance. Git commit/push **only** when operating inside the **personal vault** and a remote is intentionally configured.
+* **AUTO**: Hermes may classify eligible Capture notes → Brain under `inbox-triage.md`; worker may compile `System/index.json` and heal broken/case-mismatched links. Git commit/push is **explicit** and only allowed inside the **personal vault** with an intentionally configured remote.
 * **PROPOSE**: deletes, edits to human-written body text, project status/deadline changes — use `* -- draft.md` or ask first.
 * **NEVER**: expose secrets/API keys; rewrite git history older than the current session branch; casually edit `.obsidian/` outside `init-zephyr.py`; commit personal notes into the **public template** repo.
 
 ## 6. Agent Skills & Automation
 
-* Location: `System/skills/` (`dream-mode`, `slow-mode`, `idea-expansion`, `source-processing`, `vault-maintenance`, `lifestyle-reminders`)
-* Frontmatter: `agent`, `frequency` (`nightly` / `weekly` / `on-trigger` / `scheduled`), `requires_api`
+* Location: `System/skills/` (`inbox-triage`, `dream-mode`, `slow-mode`, `idea-expansion`, `source-processing`, `vault-maintenance`, `lifestyle-reminders`)
+* Frontmatter: `agent`, `frequency` (`nightly` / `weekly` / `on-trigger` / `scheduled`), `requires_hermes`
 * Hermes does not loop these continuously in chat — load the skill file and either run the procedure now or configure a Hermes cron job whose `workdir` is the personal vault root.
 
 ## 7. Definition of Done (vault tasks)

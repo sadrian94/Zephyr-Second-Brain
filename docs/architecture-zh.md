@@ -17,14 +17,16 @@ graph TD
     end
 
     subgraph LocalEngine [⚙️ 本地自動化引擎 - Event-Driven]
-        Watcher[👁️ zephyr-watcher.py] -->|檢測到寫入事件| Worker[🔧 zephyr-worker.py]
-        Worker -->|1. 格式化 & 歸類移動| StorageLayer
-        Worker -->|2. WikiLinks 大小寫修復| StorageLayer
-        Worker -->|3. 編譯數據| IndexFile[📄 System/index.json]
+        Watcher[👁️ zephyr-watcher.py] -->|檢測到寫入事件| Worker[🔧 zephyr-worker.py index]
+        Worker -->|1. WikiLinks 大小寫修復| StorageLayer
+        Worker -->|2. 編譯數據| IndexFile[📄 System/index.json]
     end
 
     subgraph AgentSpace [🤖 Hermes-Agent 協作沙盒]
         IndexFile -->|大腦心智圖讀取| Hermes[Hermes-Agent]
+        Hermes -->|排程收件箱整理| Inbox[📥 inbox-triage.md]
+        Inbox -->|分類合格的原始捕獲| StorageLayer
+        Inbox -->|重建索引| Worker
         Hermes -->|夜間夢境 Dream Mode| Dream[🌙 語義關聯 & MOC 起草]
         Hermes -->|週度慢思考 Slow Mode| Slow[🗓️ 健康審計 & 週報推送]
         
@@ -96,25 +98,19 @@ graph TD
 本地引擎是 Zephyr 「無感運行」的核心保障。它由兩個 Python 腳本構成，通過 Windows 批處理文件 `run-watcher.bat` 啟動：
 
 ### 3.1 `zephyr-watcher.py` (事件監聽器)
-* **機制**：使用 Python `watchdog` 庫（或輕量級目錄輪詢）實時監聽 `Capture/` 目錄。
-* **觸發**：當檢測到有新筆記建立或修改（如人類寫入完成保存）時，會按需（On-demand）觸發 `zephyr-worker.py`。
+* **機制**：使用 Python `watchdog` 庫（或輕量級目錄輪詢）實時監聽 `Capture/` 與 `Brain/` 目錄。
+* **觸發**：當檢測到 Markdown 建立或修改時，會在 debounce 後按需觸發 `zephyr-worker.py index`。
 * **優點**：Watcher 本身為事件驅動，不執行運算，平時 CPU/內存佔用接近 0。
 
 ### 3.2 `zephyr-worker.py` (核心處理器)
-當被 Watcher 喚醒時，Worker 會依次執行以下任務：
-1. **中繼資料規範化**：檢查新寫入筆記，自動為其補全缺少的 YAML Frontmatter 與標準結構。
-2. **自動分類與移動**：
-   * 掃描 `Capture/`。若發現筆記的 `type` 為 `project` 且 `status` 為 `active`，自動移至 `Brain/`。
-   * 若發現筆記的 `type` 為 `note`（非日誌且非草稿），自動移至 `Brain/`。
-3. **WikiLinks 雙鏈修復 (Link Healing)**：
+Worker 僅執行可驗證的本地維護：
+1. **WikiLinks 雙鏈修復 (Link Healing)**：
    * 掃描筆記正文中的 `[[Note Name]]`。
    * 比對數據庫中的所有檔名，自動修復大小寫不匹配（如 `[[intelligent-routing]]` -> `[[Intelligent-Routing]]`）。
-4. **物理級專案歸檔**：
-   * 掃描 `Brain/` 下屬性為 `status: completed` 或 `status: archived` 的專案。
-   * 將其實體文件從 `Brain/` 移動到 `System/Archive/` 中，保持工作區乾淨。
-5. **編譯大腦地圖 (`System/index.json`)**：
+2. **編譯大腦地圖 (`System/index.json`)**：
    * Worker 會掃描所有有效筆記，提取文件名、修改時間、YAML 元數據、第一段摘要及出入雙鏈關係。
    * 將其打包編譯為一個壓縮的 JSON 索引快取。
+3. **明確 Git 同步**：只有 `python3 System/zephyr-worker.py sync` 可以執行 commit、rebase pull 與 push。
 
 #### 📄 `System/index.json` 的 Schema 結構示例：
 ```json
@@ -149,7 +145,16 @@ graph TD
 
 AI 智能體（Hermes-agent）的運行機制完全建立在讀取 `System/index.json` 的基礎之上。這極大簡化了 AI 的輸入上下文。
 
-### 4.1 雙向心流的引導機制：Dream Mode (夜間夢境)
+### 4.1 排程收件箱整理：Hermes Inbox Triage
+* **頻率**：由 Hermes cron 觸發，通常每 5 分鐘一次。
+* **邏輯**：
+  1. Hermes 讀取 `System/skills/inbox-triage.md`，只處理合格且未分類的 Capture 筆記。
+  2. 保留人類正文、依固定 schema 補 frontmatter，並將有把握的 `note` / `project` 移入 `Brain/`。
+  3. 模糊筆記保留在 `Capture/`，標記 `triage_status: needs_review`。
+  4. 每次處理後執行 `python3 System/zephyr-worker.py index`。
+* **認證**：模型認證由 Hermes 已設定的 provider 或 OAuth 提供；Zephyr 不保存 direct LLM API key。
+
+### 4.2 雙向心流的引導機制：Dream Mode (夜間夢境)
 * **頻率**：每晚自動運行。
 * **邏輯**：
   1. AI 讀取 `index.json`，對過去 24 小時內修改過的筆記正文進行語義掃描。
@@ -161,7 +166,7 @@ AI 智能體（Hermes-agent）的運行機制完全建立在讀取 `System/index
      ```
   4. **主題聚合 (MOC Draft)**：若發現 3 篇以上未聚合的常青筆記共享同一主題，AI 在 `Capture/` 下自動生成 `MOC - <主題> -- draft.md` 的提案草稿。
 
-### 4.2 全局監控與提醒：Slow Mode (週度慢思考)
+### 4.3 全局監控與提醒：Slow Mode (週度慢思考)
 * **頻率**：每週一清晨。
 * **邏輯**：
   1. AI 掃描 `index.json`，尋找 `type: project` 且 `status: active` 的專案。
@@ -181,7 +186,7 @@ AI 智能體（Hermes-agent）的運行機制完全建立在讀取 `System/index
         │
         ├──> (拒絕提案) ──> 直接刪除該草稿或保留修改
         │
-        └──> (接受提案) ──> 去掉 `-- draft` 後綴 ──> Worker 自動將其移入 Brain/
+        └──> (接受提案) ──> 去掉 `-- draft` 後綴 ──> 下一次 Hermes inbox triage 處理
 ```
 
 ---

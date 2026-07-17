@@ -2,7 +2,7 @@
 type: skill
 agent: "{{primary_agent_name}}"
 frequency: weekly
-requires_api: true
+requires_hermes: true
 tags: [agent, skill, reporting]
 ---
 # Skill: Slow Mode Weekly Routine

@@ -27,10 +27,7 @@ def load_or_create_config(vault_dir):
         "timezone": "US/Central",
         "primary_agent_name": "<PRIMARY_AGENT_NAME>",
         "secondary_agent_name": "<SECONDARY_AGENT_NAME>",
-        "discord_webhook_url": "<DISCORD_WEBHOOK_URL>",
-        "ai_base_url": "https://api.openai.com/v1",
-        "ai_api_key": "<AI_API_KEY>",
-        "ai_model": "gpt-4o-mini"
+        "discord_webhook_url": "<DISCORD_WEBHOOK_URL>"
     }
 
     # Try loading existing vault config
@@ -85,7 +82,8 @@ def prompt_config(current_cfg):
     print("\n--- Zephyr Second Brain Setup Wizard ---")
     print("Press Enter to keep the default/current value in brackets.\n")
 
-    new_cfg = {}
+    # Preserve unrecognized legacy settings while no longer prompting for them.
+    new_cfg = current_cfg.copy()
     new_cfg["user_name"] = prompt_config_value("Enter your name", current_cfg.get("user_name", "<USER_NAME>"))
     new_cfg["preferred_language"] = prompt_config_value("Enter preferred communication language", current_cfg.get("preferred_language", "Traditional Chinese"))
 
@@ -97,9 +95,6 @@ def prompt_config(current_cfg):
 
     print("  [Hint] To get a Discord Webhook: Server Settings -> Integrations -> Webhooks -> New Webhook")
     new_cfg["discord_webhook_url"] = prompt_config_value("Enter Discord Webhook URL", current_cfg.get("discord_webhook_url", "<DISCORD_WEBHOOK_URL>"))
-    new_cfg["ai_base_url"] = prompt_config_value("Enter LLM API Base URL", current_cfg.get("ai_base_url", "https://api.openai.com/v1"))
-    new_cfg["ai_api_key"] = prompt_config_value("Enter LLM API Key", current_cfg.get("ai_api_key", "<AI_API_KEY>"))
-    new_cfg["ai_model"] = prompt_config_value("Enter LLM Model Name", current_cfg.get("ai_model", "gpt-4o-mini"))
 
     print("\nConfiguration compiled successfully!\n")
     return new_cfg

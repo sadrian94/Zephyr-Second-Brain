@@ -2,7 +2,7 @@
 type: skill
 agent: "{{primary_agent_name}}"
 frequency: nightly
-requires_api: true
+requires_hermes: true
 tags: [agent, skill, maintenance]
 ---
 # Skill: Dream Mode Nightly Routine

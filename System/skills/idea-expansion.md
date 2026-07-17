@@ -2,7 +2,7 @@
 type: skill
 agent: all
 frequency: on-trigger
-requires_api: true
+requires_hermes: true
 tags: [agent, skill, ingestion]
 ---
 # Skill: Idea Expansion & Deep Ingestion

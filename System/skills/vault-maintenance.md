@@ -2,7 +2,7 @@
 type: skill
 agent: "{{secondary_agent_name}}"
 frequency: weekly
-requires_api: false
+requires_hermes: false
 tags: [agent, skill, maintenance]
 ---
 # Skill: Vault Health & Links Healing

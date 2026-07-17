@@ -1,8 +1,6 @@
 import os
 import json
 import re
-import urllib.request
-import urllib.error
 import subprocess
 from datetime import datetime
 
@@ -10,28 +8,7 @@ VAULT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAPTURE_DIR = os.path.join(VAULT_DIR, "Capture")
 BRAIN_DIR = os.path.join(VAULT_DIR, "Brain")
 SYSTEM_DIR = os.path.join(VAULT_DIR, "System")
-CONFIG_PATH = os.path.join(SYSTEM_DIR, "config.json")
 INDEX_PATH = os.path.join(SYSTEM_DIR, "index.json")
-
-# ==============================================================================
-# AI API Key Usage Documentation:
-# The LLM API key (configured in config.json under 'ai_api_key') is REQUIRED for:
-# 1. Fast Mode Inbox Classification (classify_and_tag): Automatically parsing note 
-#    text inside Capture/ and extracting type, tags, and titles.
-# 2. Idea Cultivation and Source processing in agent skills (invoked by agents).
-#
-# It is NOT required for:
-# - Scanning directories and compiling index.json
-# - Link healing (fixing case differences or broken references)
-# - Git status checks and Git auto-commits/sync
-# - Running the worker in 'index' mode
-# ==============================================================================
-
-def load_config():
-    if not os.path.exists(CONFIG_PATH):
-        return {}
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 def load_index():
     if not os.path.exists(INDEX_PATH):
@@ -42,38 +19,6 @@ def load_index():
 def save_index(index):
     with open(INDEX_PATH, "w", encoding="utf-8") as f:
         json.dump(index, f, indent=4)
-
-def call_llm(base_url, api_key, model, system_prompt, user_prompt):
-    url = f"{base_url.rstrip('/')}/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    data = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.1
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(data).encode("utf-8"),
-        headers=headers,
-        method="POST"
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            return res_data["choices"][0]["message"]["content"]
-    except urllib.error.HTTPError as e:
-        err = e.read().decode("utf-8") if e.fp else ""
-        print(f"HTTP Error {e.code}: {e.reason}\nResponse: {err}")
-        raise
-    except Exception as e:
-        print(f"LLM request error: {e}")
-        raise
 
 def parse_frontmatter(content):
     if not content.startswith("---"):
@@ -95,104 +40,18 @@ def parse_frontmatter(content):
             fm[k] = v
     return fm, body
 
-def build_frontmatter(fm):
-    lines = ["---"]
-    for k, v in fm.items():
-        if isinstance(v, list):
-            items = ", ".join(f'"{x}"' for x in v)
-            lines.append(f"{k}: [{items}]")
-        else:
-            lines.append(f'{k}: "{v}"')
-    lines.append("---")
-    return "\n".join(lines)
-
-def _is_likely_daily_log(filename, body):
-    """Heuristic: filename matches YYYY-MM-DD or date-like pattern."""
-    stem = filename.replace(".md", "")
-    if re.match(r'^\d{4}-\d{2}-\d{2}$', stem):
-        return True
-    # body starts with daily log title
-    if re.search(r'# Daily Log', body[:100]):
-        return True
-    return False
-
-def _is_likely_source(body):
-    """Heuristic: body contains a URL or source-like markers."""
-    if re.search(r'https?://\S+', body):
-        return True
-    if re.search(r'\burl:\s*\S+', body):
-        return True
-    return False
-
-def _is_likely_project(body):
-    """Heuristic: body contains project-like keywords."""
-    project_markers = [r'\bproject\b', r'專案', r'Project', r'todo', r'TODO', r'Goal', r'goals?', r'deadline']
-    score = sum(1 for m in project_markers if re.search(m, body))
-    return score >= 2
-
-def fallback_classify(filename, body):
-    """Offline classification without LLM API."""
-    stem = filename.replace(".md", "")
-    tags = []
-
-    if _is_likely_daily_log(filename, body):
-        return {"type": "log", "tags": ["daily"], "title": stem}
-    elif _is_likely_source(body):
-        return {"type": "note", "tags": ["source", "inbox"], "title": stem}
-    elif _is_likely_project(body):
-        return {"type": "project", "tags": ["project", "inbox"], "title": stem}
-    else:
-        # Extract a few content words for tags
-        words = re.findall(r'[a-zA-Z]{3,}', body.lower())
-        word_counts = {}
-        for w in words:
-            if w not in ('the', 'and', 'for', 'that', 'this', 'with', 'from', 'have', 'are', 'was', 'were', 'been', 'will', 'can', 'not', 'but', 'all', 'has', 'had', 'its', 'our', 'who', 'how', 'what', 'when', 'where', 'which'):
-                word_counts[w] = word_counts.get(w, 0) + 1
-        top_words = sorted(word_counts.items(), key=lambda x: -x[1])[:3]
-        tags = [w for w, _ in top_words] if top_words else ["inbox"]
-        return {"type": "note", "tags": tags, "title": stem}
-
-def classify_and_tag(file_path, content, config):
-    # API key check guard
-    api_key = config.get("ai_api_key", "")
-    if not api_key or "YOUR" in api_key or api_key.startswith("<"):
-        print("Skipping AI classification: No valid 'ai_api_key' configured in System/config.json. Using fallback...")
-        return fallback_classify(os.path.basename(file_path), content)
-
-    system_prompt = (
-        'You are the classification engine for the Zephyr Second Brain.\n'
-        'You must output a raw JSON object containing exactly three fields:\n'
-        '1. "type": must be one of "project", "log", or "note"\n'
-        '2. "tags": a list of 2-4 lowercase topic tags related to the content\n'
-        '3. "title": a clean, concise, NTFS-safe title for the note (max 5 words, space-separated, no slashes or special characters)\n'
-        'Output ONLY raw JSON. No markdown backticks, no comments.'
-    )
-
-    user_prompt = f"Note content to classify:\n\n{content[:2000]}"
-
-    try:
-        response_text = call_llm(
-            config["ai_base_url"],
-            api_key,
-            config["ai_model"],
-            system_prompt,
-            user_prompt
-        )
-        json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group(0))
-        return json.loads(response_text)
-    except Exception as e:
-        print(f"Error classifying {os.path.basename(file_path)}: {e}. Using fallback...")
-        return fallback_classify(os.path.basename(file_path), content)
-
-def process_inbox():
-    config = load_config()
+def find_eligible_inbox_notes():
+    """Return unclassified Capture notes suitable for Hermes inbox triage."""
+    eligible = []
     if not os.path.exists(CAPTURE_DIR):
-        return
+        return eligible
 
-    for fname in os.listdir(CAPTURE_DIR):
-        if not fname.endswith(".md") or fname == "Home.md":
+    for fname in sorted(os.listdir(CAPTURE_DIR)):
+        if (
+            not fname.endswith(".md")
+            or fname == "Home.md"
+            or fname.endswith(" -- draft.md")
+        ):
             continue
 
         fpath = os.path.join(CAPTURE_DIR, fname)
@@ -203,43 +62,12 @@ def process_inbox():
             print(f"Failed to read {fname}: {e}")
             continue
 
-        fm, body = parse_frontmatter(content)
-
-        # Check if already classified
-        if fm.get("type"):
+        fm, _ = parse_frontmatter(content)
+        if fm.get("type") or fm.get("triage_status") == "needs_review":
             continue
+        eligible.append(fpath)
 
-        print(f"Processing unclassified note: {fname}")
-        res = classify_and_tag(fpath, body, config)
-        if not res:
-            # classify_and_tag always returns something now (fallback)
-            continue
-
-        fm["type"] = res.get("type", "note")
-        fm["tags"] = res.get("tags", [])
-        fm["created"] = datetime.now().strftime("%Y-%m-%d")
-
-        # Reconstruct note
-        new_content = build_frontmatter(fm) + "\n\n" + body
-
-        # Decide target path
-        target_name = res.get("title", fname.replace(".md", "")) + ".md"
-        target_name = re.sub(r'[\\/:*?"<>|]', "", target_name)
-
-        if fm["type"] == "log":
-            target_path = os.path.join(CAPTURE_DIR, target_name)
-        else:
-            target_path = os.path.join(BRAIN_DIR, target_name)
-
-        try:
-            with open(target_path, "w", encoding="utf-8") as f:
-                f.write(new_content)
-            print(f"Successfully processed {fname} -> {target_path}")
-            if target_path != fpath:
-                os.remove(fpath)
-                print(f"Deleted old file: {fpath}")
-        except Exception as e:
-            print(f"Failed to write target file: {e}")
+    return eligible
 
 def scan_unprocessed_ideas():
     unprocessed = []
@@ -515,22 +343,22 @@ def sync_git():
     else:
         print("No Git remote configured. Skipping remote sync.")
 
+def run_mode(mode):
+    """Run a deterministic worker mode and return a process exit code."""
+    if mode in {"all", "fast", "index"}:
+        compile_index()
+        heal_links()
+        return 0
+    if mode == "sync":
+        sync_git()
+        return 0
+
+    print("Unknown mode. Use one of: index, fast, all, sync.")
+    return 2
+
+
 if __name__ == "__main__":
     import sys
-    mode = "all"
-    if len(sys.argv) > 1:
-        mode = sys.argv[1]
 
-    if mode == "fast":
-        process_inbox()
-        compile_index()
-        heal_links()
-        sync_git()
-    elif mode == "index":
-        compile_index()
-        heal_links()
-    else:
-        process_inbox()
-        compile_index()
-        heal_links()
-        sync_git()
+    requested_mode = sys.argv[1] if len(sys.argv) > 1 else "index"
+    raise SystemExit(run_mode(requested_mode))

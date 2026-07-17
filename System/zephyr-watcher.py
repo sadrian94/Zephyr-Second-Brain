@@ -18,11 +18,11 @@ POLL_INTERVAL = 2.0      # seconds between polling checks (if in polling mode)
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] [Watcher] {msg}")
 
-def run_worker():
-    log("Triggering zephyr-worker.py index...")
+def run_worker(mode="index"):
+    log(f"Triggering zephyr-worker.py {mode}...")
     try:
         result = subprocess.run(
-            [sys.executable, WORKER_PATH, "index"],
+            [sys.executable, WORKER_PATH, mode],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -51,6 +51,7 @@ try:
             super().__init__()
             self.last_change_time = 0.0
             self.pending_change = False
+            self.trigger_mode = "index"
 
         def on_any_event(self, event):
             # Only monitor markdown file modifications/creations/deletions
@@ -61,9 +62,20 @@ try:
             
             # Record change time
             self.last_change_time = time.time()
-            if not self.pending_change:
-                self.pending_change = True
-                log(f"Detected change: {os.path.basename(event.src_path)} ({event.event_type})")
+            self.pending_change = True
+            
+            fname = os.path.basename(event.src_path)
+            is_capture_md = (
+                event.src_path.replace("\\", "/").startswith(CAPTURE_DIR.replace("\\", "/"))
+                and not fname.endswith(" -- draft.md")
+                and event.event_type in {"created", "modified"}
+            )
+            
+            if is_capture_md:
+                self.trigger_mode = "triage"
+                log(f"Detected change (triage needed): {fname} ({event.event_type})")
+            else:
+                log(f"Detected change (index needed): {fname} ({event.event_type})")
 
     def run_watchdog():
         log("Watchdog library detected. Starting event-driven file watcher...")
@@ -85,7 +97,9 @@ try:
                 # Debounce logic
                 if handler.pending_change and (time.time() - handler.last_change_time >= DEBOUNCE_INTERVAL):
                     handler.pending_change = False
-                    run_worker()
+                    mode = handler.trigger_mode
+                    handler.trigger_mode = "index"
+                    run_worker(mode)
         except KeyboardInterrupt:
             observer.stop()
             log("Watcher stopped by user.")
@@ -121,6 +135,7 @@ def run_polling():
     last_state = get_md_files_state()
     last_change_time = 0.0
     pending_change = False
+    triage_needed = False
     
     try:
         while True:
@@ -132,10 +147,22 @@ def run_polling():
             
             # Check for modified or new files
             for path, mtime in current_state.items():
+                fname = os.path.basename(path)
+                is_add_or_mod = False
                 if path not in last_state:
-                    changes.append(f"Added {os.path.basename(path)}")
+                    changes.append(f"Added {fname}")
+                    is_add_or_mod = True
                 elif last_state[path] != mtime:
-                    changes.append(f"Modified {os.path.basename(path)}")
+                    changes.append(f"Modified {fname}")
+                    is_add_or_mod = True
+                
+                if is_add_or_mod:
+                    is_capture_md = (
+                        path.replace("\\", "/").startswith(CAPTURE_DIR.replace("\\", "/"))
+                        and not fname.endswith(" -- draft.md")
+                    )
+                    if is_capture_md:
+                        triage_needed = True
                     
             # Check for deleted files
             for path in last_state:
@@ -152,7 +179,9 @@ def run_polling():
             # Debounce logic
             if pending_change and (time.time() - last_change_time >= DEBOUNCE_INTERVAL):
                 pending_change = False
-                run_worker()
+                mode = "triage" if triage_needed else "index"
+                triage_needed = False
+                run_worker(mode)
                 
     except KeyboardInterrupt:
         log("Watcher stopped by user.")

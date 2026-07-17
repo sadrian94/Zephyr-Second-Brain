@@ -49,7 +49,7 @@ If `System/config.json` exists, its values override unresolved `{{placeholders}}
 | Task | Command / action |
 |------|------------------|
 | Rebuild index + heal links | `python3 System/zephyr-worker.py index` |
-| Triage unclassified inbox | Follow `System/skills/inbox-triage.md` through Hermes, then run `python3 System/zephyr-worker.py index` |
+| Triage unclassified inbox | `python3 System/zephyr-worker.py triage` (runs Hermes oneshot or direct LLM API) |
 | Explicit git sync | `python3 System/zephyr-worker.py sync` |
 | Watch Capture/Brain | `./run-watcher.sh` (or `python3 System/zephyr-watcher.py`) |
 | Expand raw ideas | Follow `System/skills/idea-expansion.md` (PROPOSE via `-- draft.md`) |
@@ -57,7 +57,7 @@ If `System/config.json` exists, its values override unresolved `{{placeholders}}
 | Weekly briefing | `System/skills/slow-mode.md` |
 | Health / archive | `System/skills/vault-maintenance.md` |
 
-Hermes handles model authentication through its configured provider or OAuth. `System/config.json` must not contain a direct LLM API key for inbox triage. Routines marked `requires_hermes: true` need a Hermes model session; local index and link-healing commands do not.
+Hermes handles model authentication through its configured provider/OAuth or optional custom overrides. Direct LLM API fallback uses credentials configured in `config_local.json`. Routines marked `requires_hermes: true` need a Hermes model session; local index and link-healing commands do not.
 
 ---
 

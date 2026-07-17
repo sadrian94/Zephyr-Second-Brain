@@ -5,10 +5,9 @@
 Deep dives:
 - [Philosophy & Positioning](./docs/philosophy-and-positioning.md)
 - [Architecture](./docs/architecture.md)
-- [Hermes Cron Inbox Triage](./docs/hermes-cron.md)
 - [Project Management](./docs/project-management.md)
 
-Zephyr keeps you in capture flow. Hermes handles semantic inbox triage through its configured provider; local workers handle deterministic indexing, link healing, and maintenance.
+Zephyr keeps you in capture flow. The local watcher reactively triggers semantic inbox triage using Hermes CLI or a direct LLM API; local workers handle deterministic indexing, link healing, and maintenance.
 
 ---
 
@@ -92,9 +91,11 @@ python3 System/zephyr-worker.py index
 
 `--here` writes gitignored `System/config.json` only; it does **not** rewrite tracked `AGENTS.md` / `GEMINI.md` with personal names.
 
-### Optional: Hermes inbox triage
+### Reactive Inbox Triage
 
-Zephyr does not require a direct model API key in `System/config.json`. Configure a Hermes cron job in the profile that already has your preferred provider or OAuth session, set its `workdir` to the personal vault root, and require it to read `System/skills/inbox-triage.md` before acting. The local worker remains available without Hermes for indexing and link healing.
+Zephyr features a reactive, event-driven inbox triage system. When `zephyr-watcher.py` is running, it automatically triggers `zephyr-worker.py triage` when new markdown files are added to `Capture/`.
+- **Using Hermes (Recommended)**: Triage is executed via a one-shot Hermes CLI call (`hermes -z`). This leverages your logged-in credentials (with optional provider/model overrides in `System/config.json` configured via `init-zephyr.py`) and requires no plain-text API keys.
+- **Using Direct LLM API**: If you do not use Hermes, you can configure your API credentials (`ai_api_key`, `ai_base_url`, `ai_model`) in `config_local.json` or `System/config.json` via the setup wizard. The worker will call the LLM directly.
 
 ### Privacy note (important for GitHub)
 
@@ -136,10 +137,10 @@ Zephyr/
 
 1. **Watcher / Worker** (`zephyr-watcher.py`, `zephyr-worker.py`)
    - Watches `Capture/` + `Brain/`
-   - Compiles `System/index.json`
-   - Heals case-mismatched wikilinks
+   - Triggers reactive inbox triage on capture notes changes
+   - Compiles `System/index.json` and heals case-mismatched wikilinks
    - Runs git sync only through the explicit `python3 System/zephyr-worker.py sync` command
-2. **Hermes Inbox Triage (scheduled skill)**: classifies eligible raw captures using Hermes's configured provider, preserves body text, and indexes the result.
+2. **Reactive Inbox Triage**: Classifies eligible raw captures instantly using Hermes CLI or direct API fallback, preserves body text, and indexes the result.
 3. **Dream Mode (nightly skill)**: suggest connections; draft MOCs.
 4. **Slow Mode (weekly skill)**: vault health + project briefing.
 
@@ -157,7 +158,7 @@ Zephyr/
 
 1. Open `Home.md` or press **Today's Log**.
 2. Capture bullets under `## Capture` (`- idea: ...`).
-3. Let the Hermes inbox triage cron classify eligible captures; the worker indexes and heals links.
+3. The background watcher instantly triggers triage and indexes the captures reactively.
 4. Expand promising ideas with `System/skills/idea-expansion.md`.
 
 Chinese README: [README-ZH.md](./README-ZH.md)

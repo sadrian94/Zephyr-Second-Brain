@@ -17,16 +17,18 @@ graph TD
     end
 
     subgraph LocalEngine [⚙️ Local Python Engine - Event-Driven]
-        Watcher[👁️ zephyr-watcher.py] -->|Trigger on File Event| Worker[🔧 zephyr-worker.py index]
-        Worker -->|1. Case-Mismatch Link Healing| StorageLayer
-        Worker -->|2. Compile Data| IndexFile[📄 System/index.json]
+        Watcher[👁️ zephyr-watcher.py] -->|Trigger on File Event| Worker[🔧 zephyr-worker.py]
+        Worker -->|Mode: index| WorkerIndex[Index & Link Healing]
+        WorkerIndex -->|Compile Data| IndexFile[📄 System/index.json]
+        WorkerIndex -->|1. Case-Mismatch Link Healing| StorageLayer
+        
+        Worker -->|Mode: triage| Triage[Triage Process]
+        Triage -->|Option 1: Invoke oneshot| Hermes[Hermes-Agent]
+        Triage -->|Option 2: Direct API| StorageLayer
     end
 
     subgraph AgentSpace [🤖 Hermes-Agent Sandbox]
-        IndexFile -->|Read Mind Map| Hermes[Hermes-Agent]
-        Hermes -->|Scheduled Inbox Triage| Inbox[📥 inbox-triage.md]
-        Inbox -->|Classify eligible captures| StorageLayer
-        Inbox -->|Rebuild index| Worker
+        IndexFile -->|Read Mind Map| Hermes
         Hermes -->|Nightly Dream Mode| Dream[🌙 Semantic Linkage & MOC Drafting]
         Hermes -->|Weekly Slow Mode| Slow[🗓️ Health Audit & Status Webhook]
         
@@ -145,14 +147,16 @@ The worker performs deterministic local maintenance only:
 
 AI agents (like Hermes-agent) rely completely on `System/index.json` to load context, simplifying token consumption.
 
-### 4.1 Scheduled Inbox Triage
-* **Frequency**: A Hermes cron job, typically every 5 minutes.
+### 4.1 Reactive Inbox Triage
+* **Frequency**: Event-driven (triggered instantly by `zephyr-watcher.py` upon additions/modifications of markdown files in `Capture/`).
 * **Workflow**:
-  1. Hermes reads `System/skills/inbox-triage.md` and processes only eligible unclassified Capture notes.
-  2. It preserves human-authored body text, adds the fixed frontmatter schema, and moves confident `note` / `project` results to `Brain/`.
-  3. Ambiguous notes remain in `Capture/` with `triage_status: needs_review`.
-  4. Hermes runs `python3 System/zephyr-worker.py index` after any processing.
-* **Authentication**: Hermes uses its configured provider or OAuth; Zephyr does not store a direct LLM API key for this path.
+  1. `zephyr-watcher.py` runs `zephyr-worker.py triage` when eligible changes occur.
+  2. The worker scans for unclassified files. If found, it attempts to run `hermes -z` (one-shot mode) to execute the triage skill.
+  3. If Hermes is not present or authenticated, the worker falls back to invoking the direct LLM API using the settings in `config_local.json`.
+  4. The active triage system reads the note body, adds the fixed frontmatter schema, renames the note to a Windows-safe title, and moves confident `note` / `project` results to `Brain/`.
+  5. Ambiguous notes remain in `Capture/` with `triage_status: needs_review`.
+  6. Reindexing (`zephyr-worker.py index`) runs automatically at the end of the triage process.
+* **Authentication**: Hermes triage uses your logged-in session (with optional model/provider overrides configured via `init-zephyr.py`); direct API fallback uses `ai_api_key` securely stored in `config_local.json`.
 
 ### 4.2 Nightly Link Weaving: Dream Mode
 * **Frequency**: Triggered nightly.

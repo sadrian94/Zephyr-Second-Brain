@@ -5,10 +5,9 @@
 延伸閱讀：
 - [哲學與定位](./docs/philosophy-and-positioning-zh.md)
 - [技術架構](./docs/architecture-zh.md)
-- [Hermes Cron Inbox Triage](./docs/hermes-cron-zh.md)
 - [專案管理](./docs/project-management-zh.md)
 
-Zephyr 讓人類只負責原始捕獲；Hermes 透過既有 provider 或 OAuth 負責語義分類，本地 worker 負責可驗證的索引、連結修復與維護。
+Zephyr 讓人類只負責原始捕獲；本地 watcher 在檢測到變更時，透過 Hermes CLI 或直連 LLM API 即時進行語義分類，本地 worker 負責索引更新與連結修復。
 
 ---
 
@@ -92,9 +91,11 @@ python3 System/zephyr-worker.py index
 
 `--here` 只會寫入 gitignored 的 `System/config.json`，**不會**把個人姓名寫進 tracked 的 `AGENTS.md` / `GEMINI.md`。
 
-### 可選：Hermes Inbox Triage
+### 反應式即時分類：Inbox Triage
 
-Zephyr 不需要在 `System/config.json` 保存模型 API key。請在已登入你偏好 provider 或 OAuth 的 Hermes profile 建立 cron job，將 `workdir` 設為個人 vault root，並要求 job 先讀取 `System/skills/inbox-triage.md`。即使未使用 Hermes，本地 worker 仍可獨立建立索引與修復連結。
+Zephyr 現在支援事件驅動的反應式即時分類。當 `zephyr-watcher.py` 啟動時，只要檢測到 `Capture/` 中有新 Markdown 檔案寫入，就會自動執行 `zephyr-worker.py triage`：
+- **使用 Hermes（推薦）**：藉由 One-shot 命令（`hermes -z`）在背景呼叫 Hermes CLI。這會套用您本機已登入的 profile / OAuth 憑證，並支援在 `System/config.json` 中配置自訂的 provider/model，完全不需要在本機設定檔中暴露或儲存 API key。
+- **使用 Direct LLM API**：若您未使用 Hermes，可以在設定精靈中配置您的 API 金鑰（`ai_api_key`、`ai_base_url`、`ai_model`），Worker 會在本機直接發送 API 請求。
 
 ### 隱私注意（推 GitHub 前必看）
 
@@ -136,10 +137,10 @@ Zephyr/
 
 1. **Watcher / Worker**
    - 監聽 `Capture/` + `Brain/`
-   - 編譯 `System/index.json`
-   - 修復大小寫不一致的 wikilink
+   - 在 Capture 筆記變動時即時觸發反應式分類
+   - 編譯 `System/index.json` 並修復大小寫不一致的 wikilink
    - 僅透過明確的 `python3 System/zephyr-worker.py sync` 執行 git sync
-2. **Hermes Inbox Triage（排程技能）**：使用 Hermes 已設定的 provider 分類合格的原始捕獲、保留正文，並更新索引。
+2. **反應式即時分類 (Reactive Triage)**：當有新筆記寫入時，即時透過呼叫 Hermes CLI 或直連 API 備用方案完成語義分類、重命名並移至大腦庫，同時更新索引。
 3. **Dream Mode（夜間）**：建議連結、起草 MOC。
 4. **Slow Mode（週度）**：健康檢查與專案週報。
 

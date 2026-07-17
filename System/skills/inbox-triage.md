@@ -1,7 +1,7 @@
 ---
 type: skill
 agent: "{{primary_agent_name}}"
-frequency: scheduled
+frequency: on-trigger (reactive via watcher)
 requires_hermes: true
 tags: [agent, skill, inbox, triage]
 ---

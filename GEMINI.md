@@ -40,7 +40,7 @@ If `System/config.json` exists, its values override unresolved `{{placeholders}}
 | Task | Command / action |
 |------|------------------|
 | Rebuild index + heal links | `python3 System/zephyr-worker.py index` |
-| Triage inbox | Follow `System/skills/inbox-triage.md` through Hermes, then run `python3 System/zephyr-worker.py index` |
+| Triage inbox | `python3 System/zephyr-worker.py triage` (runs Hermes oneshot or direct LLM API) |
 | Explicit git sync | `python3 System/zephyr-worker.py sync` |
 | Watch Capture/Brain | `./run-watcher.sh` |
 | Expand ideas | `System/skills/idea-expansion.md` |

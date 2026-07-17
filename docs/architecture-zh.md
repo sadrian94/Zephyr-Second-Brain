@@ -17,16 +17,18 @@ graph TD
     end
 
     subgraph LocalEngine [⚙️ 本地自動化引擎 - Event-Driven]
-        Watcher[👁️ zephyr-watcher.py] -->|檢測到寫入事件| Worker[🔧 zephyr-worker.py index]
-        Worker -->|1. WikiLinks 大小寫修復| StorageLayer
-        Worker -->|2. 編譯數據| IndexFile[📄 System/index.json]
+        Watcher[👁️ zephyr-watcher.py] -->|檢測到寫入事件| Worker[🔧 zephyr-worker.py]
+        Worker -->|Mode: index| WorkerIndex[索引編譯 & 連結修復]
+        WorkerIndex -->|編譯數據| IndexFile[📄 System/index.json]
+        WorkerIndex -->|1. WikiLinks 大小寫修復| StorageLayer
+        
+        Worker -->|Mode: triage| Triage[分類整理流程]
+        Triage -->|選擇 1: 呼叫 oneshot| Hermes[Hermes-Agent]
+        Triage -->|選擇 2: 直連 API| StorageLayer
     end
 
     subgraph AgentSpace [🤖 Hermes-Agent 協作沙盒]
-        IndexFile -->|大腦心智圖讀取| Hermes[Hermes-Agent]
-        Hermes -->|排程收件箱整理| Inbox[📥 inbox-triage.md]
-        Inbox -->|分類合格的原始捕獲| StorageLayer
-        Inbox -->|重建索引| Worker
+        IndexFile -->|大腦心智圖讀取| Hermes
         Hermes -->|夜間夢境 Dream Mode| Dream[🌙 語義關聯 & MOC 起草]
         Hermes -->|週度慢思考 Slow Mode| Slow[🗓️ 健康審計 & 週報推送]
         
@@ -145,14 +147,16 @@ Worker 僅執行可驗證的本地維護：
 
 AI 智能體（Hermes-agent）的運行機制完全建立在讀取 `System/index.json` 的基礎之上。這極大簡化了 AI 的輸入上下文。
 
-### 4.1 排程收件箱整理：Hermes Inbox Triage
-* **頻率**：由 Hermes cron 觸發，通常每 5 分鐘一次。
+### 4.1 反應式即時分類：Inbox Triage
+* **頻率**：事件驅動（由 `zephyr-watcher.py` 在 `Capture/` 中檢測到新 Markdown 檔案時即時觸發）。
 * **邏輯**：
-  1. Hermes 讀取 `System/skills/inbox-triage.md`，只處理合格且未分類的 Capture 筆記。
-  2. 保留人類正文、依固定 schema 補 frontmatter，並將有把握的 `note` / `project` 移入 `Brain/`。
-  3. 模糊筆記保留在 `Capture/`，標記 `triage_status: needs_review`。
-  4. 每次處理後執行 `python3 System/zephyr-worker.py index`。
-* **認證**：模型認證由 Hermes 已設定的 provider 或 OAuth 提供；Zephyr 不保存 direct LLM API key。
+  1. `zephyr-watcher.py` 執行 `zephyr-worker.py triage`。
+  2. Worker 檢索未分類筆記，若存在，優先嘗試以 One-shot 模式呼叫 `hermes -z` 執行分類技能。
+  3. 若 Hermes 未安裝或未登入，Worker 會退而使用 [config_local.json](file:///c:/Users/sadri/workspace/Zephyr/config_local.json) 中的配置直接呼叫 LLM API。
+  4. 分類程式讀取筆記正文，補齊 frontmatter schema，重新命名為 Windows 安全檔名，並將有把握的 `note` / `project` 移入 `Brain/`。
+  5. 模糊筆記保留在 `Capture/`，標記 `triage_status: needs_review`。
+  6. 處理完成後，自動執行本機索引更新（`zephyr-worker.py index`）。
+* **認證**：Hermes 模式下直接套用您已登入的本地 profile（可由 `init-zephyr.py` 額外指定 provider/model 覆寫）；直連 API 模式則讀取並使用安全保存在 `config_local.json` 裡的 `ai_api_key`。
 
 ### 4.2 雙向心流的引導機制：Dream Mode (夜間夢境)
 * **頻率**：每晚自動運行。

@@ -27,7 +27,12 @@ def load_or_create_config(vault_dir):
         "timezone": "US/Central",
         "primary_agent_name": "<PRIMARY_AGENT_NAME>",
         "secondary_agent_name": "<SECONDARY_AGENT_NAME>",
-        "discord_webhook_url": "<DISCORD_WEBHOOK_URL>"
+        "discord_webhook_url": "<DISCORD_WEBHOOK_URL>",
+        "hermes_provider": "",
+        "hermes_model": "",
+        "ai_base_url": "https://api.openai.com/v1",
+        "ai_api_key": "<AI_API_KEY>",
+        "ai_model": "gpt-4o-mini"
     }
 
     # Try loading existing vault config
@@ -95,6 +100,27 @@ def prompt_config(current_cfg):
 
     print("  [Hint] To get a Discord Webhook: Server Settings -> Integrations -> Webhooks -> New Webhook")
     new_cfg["discord_webhook_url"] = prompt_config_value("Enter Discord Webhook URL", current_cfg.get("discord_webhook_url", "<DISCORD_WEBHOOK_URL>"))
+
+    print("\n--- Inbox Triage Configuration ---")
+    print("Choose triage method:")
+    print("  1. Hermes CLI (uses local hermes commands, zero-config API keys)")
+    print("  2. Direct LLM API (uses standard API url, key, and model)")
+    triage_choice = prompt_config_value("Select method (1 or 2)", "1")
+    
+    if triage_choice == "1":
+        print("\nConfiguring Hermes CLI Triage:")
+        new_cfg["hermes_provider"] = prompt_config_value("  Enter Hermes provider (e.g. openrouter, anthropic) [optional]", current_cfg.get("hermes_provider", ""))
+        new_cfg["hermes_model"] = prompt_config_value("  Enter Hermes model (e.g. google/gemini-flash-1.5) [optional]", current_cfg.get("hermes_model", ""))
+        new_cfg["ai_base_url"] = current_cfg.get("ai_base_url", "https://api.openai.com/v1")
+        new_cfg["ai_api_key"] = current_cfg.get("ai_api_key", "<AI_API_KEY>")
+        new_cfg["ai_model"] = current_cfg.get("ai_model", "gpt-4o-mini")
+    else:
+        print("\nConfiguring Direct LLM API:")
+        new_cfg["ai_base_url"] = prompt_config_value("  Enter API Base URL", current_cfg.get("ai_base_url", "https://api.openai.com/v1"))
+        new_cfg["ai_api_key"] = prompt_config_value("  Enter API Key", current_cfg.get("ai_api_key", "<AI_API_KEY>"))
+        new_cfg["ai_model"] = prompt_config_value("  Enter AI Model", current_cfg.get("ai_model", "gpt-4o-mini"))
+        new_cfg["hermes_provider"] = current_cfg.get("hermes_provider", "")
+        new_cfg["hermes_model"] = current_cfg.get("hermes_model", "")
 
     print("\nConfiguration compiled successfully!\n")
     return new_cfg
@@ -264,7 +290,8 @@ def main():
                 if fname in [
                     "init-zephyr.py", "config_local.json", "skills-lock.json",
                     "config.example.json", "config.json",
-                    "README.md", "README-ZH.md", "IDEA.md"
+                    "README.md", "README-ZH.md", "IDEA.md",
+                    "LICENSE", "LICENSE.md", "LICENSE.txt"
                 ]:
                     continue
 

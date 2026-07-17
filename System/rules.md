@@ -16,7 +16,7 @@ This file is a short mirror for humans browsing `System/`. If it conflicts with 
 * **note**: tags (`#area/...`, `#moc`)
 
 ## 3. Capture-First, Classify-Later
-Human captures → Hermes runs `System/skills/inbox-triage.md` using its configured provider → `zephyr-worker.py index` compiles metadata and heals links. Agents expand notes via `System/skills/` without destroying raw text.
+Human captures → Watcher runs `zephyr-worker.py triage` (calling Hermes or API fallback) → `zephyr-worker.py index` compiles metadata and heals links. Agents expand notes via `System/skills/` without destroying raw text.
 
 ## 4. Wikilink & Naming
 * Flat `[[Note Name]]` only

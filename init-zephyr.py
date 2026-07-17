@@ -204,6 +204,23 @@ def update_vault(vault_dir):
     if not os.path.isfile(config_path):
         raise SystemExit("[Init] --update requires an initialized vault with System/config.json. Run init-zephyr.py first.")
 
+    git_dir = os.path.join(WORKSPACE_DIR, ".git")
+    if os.path.exists(git_dir):
+        log("Checking for latest template updates from git remote...")
+        try:
+            rem_check = subprocess.run(["git", "-C", WORKSPACE_DIR, "remote"], capture_output=True, text=True, encoding="utf-8")
+            if rem_check.returncode == 0 and rem_check.stdout.strip():
+                pull_res = subprocess.run(["git", "-C", WORKSPACE_DIR, "pull"], capture_output=True, text=True, encoding="utf-8")
+                if pull_res.returncode == 0:
+                    log("Successfully pulled the latest updates from git remote.")
+                else:
+                    log(f"Warning: Could not automatically pull remote changes: {pull_res.stderr.strip()}")
+                    log("Proceeding with the update using current local files...")
+            else:
+                log("No git remote configured in workspace. Updating from current local files...")
+        except Exception as e:
+            log(f"Warning: Failed to check for git updates: {e}")
+
     config = load_or_create_config(vault_dir)
     update_paths = set(UPDATE_FILES)
     for directory in UPDATE_DIRECTORIES:

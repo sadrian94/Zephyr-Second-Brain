@@ -66,7 +66,7 @@ class UpdateModeTests(unittest.TestCase):
 
 
 class ConfigSchemaTests(unittest.TestCase):
-    def test_new_config_does_not_require_direct_llm_api_settings(self):
+    def test_new_config_includes_default_api_settings(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir) / "workspace"
             vault = Path(temp_dir) / "vault"
@@ -76,9 +76,9 @@ class ConfigSchemaTests(unittest.TestCase):
             with patch.object(module, "WORKSPACE_DIR", str(workspace)):
                 config = module.load_or_create_config(str(vault))
 
-        self.assertNotIn("ai_base_url", config)
-        self.assertNotIn("ai_api_key", config)
-        self.assertNotIn("ai_model", config)
+        self.assertIn("ai_base_url", config)
+        self.assertIn("ai_api_key", config)
+        self.assertIn("ai_model", config)
 
     def test_interactive_setup_preserves_legacy_config_values(self):
         module = load_init_module()

@@ -297,7 +297,7 @@ def main():
         # Copy files from workspace root to target vault with token replacements
         for root, dirs, files in os.walk(WORKSPACE_DIR):
             # Modify dirs in-place to avoid walking into unwanted folders
-            dirs[:] = [d for d in dirs if d not in [".git", ".agents", "__pycache__", "node_modules", "docs"]]
+            dirs[:] = [d for d in dirs if d not in [".git", ".agents", "__pycache__", "node_modules", "docs", "tests", ".obsidian"]]
 
             for fname in files:
                 src_file = os.path.join(root, fname)
@@ -308,7 +308,8 @@ def main():
                     "init-zephyr.py", "config_local.json", "skills-lock.json",
                     "config.example.json", "config.json",
                     "README.md", "README-ZH.md", "IDEA.md",
-                    "LICENSE", "LICENSE.md", "LICENSE.txt"
+                    "LICENSE", "LICENSE.md", "LICENSE.txt",
+                    "requirements.txt", ".gitignore"
                 ]:
                     continue
 

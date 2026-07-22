@@ -52,6 +52,10 @@ class UpdateModeTests(unittest.TestCase):
                 (vault / "System" / "zephyr-worker.py").read_text(encoding="utf-8"),
                 (REPO_ROOT / "System" / "zephyr-worker.py").read_text(encoding="utf-8"),
             )
+            self.assertEqual(
+                (vault / ".agents" / "skills" / "zephyr-second-brain" / "SKILL.md").read_text(encoding="utf-8"),
+                (REPO_ROOT / ".agents" / "skills" / "zephyr-second-brain" / "SKILL.md").read_text(encoding="utf-8"),
+            )
 
     def test_update_requires_an_initialized_vault(self):
         with tempfile.TemporaryDirectory() as temp_dir:

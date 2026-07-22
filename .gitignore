@@ -15,7 +15,10 @@ GEMINI.local.md
 *.key
 
 # Agent custom files & superpowers plugin configurations
-.agents/
+.agents/*
+!.agents/skills/
+!.agents/skills/zephyr-second-brain/
+!.agents/skills/zephyr-second-brain/**
 superpower/
 superpowers/
 .superpowers/

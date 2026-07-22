@@ -155,7 +155,7 @@ UPDATE_FILES = {
     "System/zephyr-watcher.py",
     "System/zephyr-worker.py",
 }
-UPDATE_DIRECTORIES = ("System/skills", "System/templates")
+UPDATE_DIRECTORIES = ("System/skills", "System/templates", ".agents/skills/zephyr-second-brain")
 TEXT_FILE_EXTENSIONS = (".md", ".json", ".py", ".css", ".sh", ".bat", ".txt")
 
 
@@ -169,6 +169,19 @@ def copy_template_file(src_file, dest_file, config):
         shutil.copymode(src_file, dest_file)
     else:
         shutil.copy2(src_file, dest_file)
+
+
+def install_agent_skill(vault_dir, config):
+    """Install the bundled Codex skill without copying unrelated local skills."""
+    source_dir = os.path.join(WORKSPACE_DIR, ".agents", "skills", "zephyr-second-brain")
+    if not os.path.isdir(source_dir):
+        return
+    for root, _, files in os.walk(source_dir):
+        for filename in files:
+            source_file = os.path.join(root, filename)
+            relative_path = os.path.relpath(source_file, WORKSPACE_DIR)
+            copy_template_file(source_file, os.path.join(vault_dir, relative_path), config)
+            log(f"Installed agent skill: {relative_path}")
 
 
 def update_vault(vault_dir):
@@ -295,6 +308,8 @@ def main():
                         log(f"Copied binary file: {rel_path}")
                 except Exception as e:
                     log(f"Failed to process file {rel_path}: {e}")
+
+        install_agent_skill(vault_dir, config)
 
         # Optional convenience: if another local vault already has Dataview installed,
         # copy it into the personal vault so dashboards work offline. This is not

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zephyr Second Brain"
+  short_description: "Operate a Zephyr vault safely"
+  default_prompt: "Use $zephyr-second-brain to triage and maintain this Zephyr vault safely."

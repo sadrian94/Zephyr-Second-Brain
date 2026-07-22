@@ -1,164 +1,70 @@
 # Zephyr Second Brain
 
-> Named after **Zephyrus**, the Greek god of the West Wind. Zephyr is a lightweight, flow-first Obsidian second brain for humans + Hermes-agent.
+Zephyr is a local-first, Markdown-based second-brain protocol for Obsidian. Version 0.2 is manual-first: agents can prepare proposals, while a human explicitly approves commitments and a deterministic local worker applies them.
 
-Deep dives:
-- [Philosophy & Positioning](./docs/philosophy-and-positioning.md)
-- [Architecture](./docs/architecture.md)
-- [Project Management](./docs/project-management.md)
+Read the [protocol](System/PROTOCOL.md), [capability matrix](docs/capabilities.md), and [v0.1 → v0.2 migration guide](docs/migration-v0.2.md) before moving an existing vault.
 
-Zephyr keeps you in capture flow. The local watcher reactively triggers semantic inbox triage using Hermes CLI or a direct LLM API; local workers handle deterministic indexing, link healing, and maintenance.
+## What it does
 
----
+- Uses five roots: `Capture/`, `Active/`, `Brain/`, `Archive/`, and `System/`.
+- Validates standard YAML frontmatter and builds `System/index.json` locally.
+- Moves a reviewed project only through explicit, collision-safe `activate` and `archive` commands.
+- Provides an optional local watcher that runs validation/index reporting after a debounce.
 
-## Prerequisites (Obsidian)
+Zephyr does not invoke an agent from the watcher, call an LLM API, retain API credentials, automatically activate projects, automatically archive projects, or automatically rewrite note prose.
 
-### Required (dashboards will not work without these)
-
-| Component | Why |
-|-----------|-----|
-| **[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** community plugin | Powers `Home.md`, `Capture.md`, `Brain.md` via DataviewJS |
-| **Enable DataviewJS** in Dataview settings | Dashboards execute JS layouts |
-| **CSS snippet `zephyr-dashboard`** | Layout/styles for the bento dashboard (`System/zephyr-dashboard.css` → `.obsidian/snippets/`) |
-
-Install Dataview from Obsidian → Settings → Community plugins. This template does **not** vendor plugin binaries in git.
-
-### Optional (personal preference — not required, not tracked)
-
-These are fine for a personal vault but are **not** part of the Zephyr template:
-
-- Templater
-- Calendar
-- Obsidian Git
-- Excalidraw
-- QuickAdd
-- Icon Folder
-- any other community plugins
-
-Plugin folders under `.obsidian/plugins/**` are gitignored so personal tastes do not land on GitHub.
-
----
-
-## 5-Minute Quickstart
-
-**Recommended workflow:** keep this GitHub repo as a **template**, and install your personal second brain to the default vault path `~/Obsidian/Zephyr`. That keeps personal notes and secrets out of git by design.
-
-### Option A — Default install to `~/Obsidian/Zephyr` (recommended)
+## Quick start
 
 ```bash
-# 1) Install deps (from this repo)
 python3 -m pip install -r requirements.txt
-
-# 2) Initialize personal vault at ~/Obsidian/Zephyr
-#    (copies templates/scripts, writes System/config.json, enables Dataview/CSS flags)
-python3 init-zephyr.py
-
-# 3) Build the index (no API key required)
-python3 ~/Obsidian/Zephyr/System/zephyr-worker.py index
-
-# 4) Start the background watcher from the personal vault
+python3 init-zephyr.py              # creates a personal vault at ~/Obsidian/Zephyr
 cd ~/Obsidian/Zephyr
-./run-watcher.sh
-# Windows: run-watcher.bat
+python3 System/zephyr-worker.py validate
+python3 System/zephyr-worker.py index
 ```
 
-Open `~/Obsidian/Zephyr` as an Obsidian vault, then:
-1. Install/enable **Dataview** and turn on **Enable DataviewJS**.
-2. Enable CSS snippet **zephyr-dashboard** in Settings → Appearance → CSS Snippets.
-3. Open `Home.md`.
-
-Optional: put personal defaults in repo-root `config_local.json` (gitignored) before running `init-zephyr.py`; they will be copied into the personal vault's `System/config.json`.
-
-### Update an existing vault safely
-
-Develop system changes in this template repo, then update the personal vault from the repo root:
-
-```bash
-python3 init-zephyr.py --update
-```
-
-`--update` refreshes Zephyr-owned assets only: the watcher/worker launchers, `System/` scripts, design/CSS, skills, templates, and the three dashboards (`Home.md`, `Capture/Capture.md`, `Brain/Brain.md`). It preserves `System/config.json`, all other personal notes in `Capture/` and `Brain/`, community-plugin binaries, and existing Obsidian preferences. It then rebuilds `System/index.json`.
-
-### Option B — Use this repo as the vault (`--here`)
-
-Only if you intentionally want the template checkout itself to act as the vault:
+To use this checkout deliberately as a vault instead:
 
 ```bash
 python3 init-zephyr.py --here
-python3 System/zephyr-worker.py index
-./run-watcher.sh
+python3 System/zephyr-worker.py validate
 ```
 
-`--here` writes gitignored `System/config.json` only; it does **not** rewrite tracked `AGENTS.md` / `GEMINI.md` with personal names.
+Dataview and the supplied CSS snippet remain optional presentation tools; they are not the source of truth.
 
-### Reactive Inbox Triage
+## Everyday flow
 
-Zephyr features a reactive, event-driven inbox triage system. When `zephyr-watcher.py` is running, it automatically triggers `zephyr-worker.py triage` when new markdown files are added to `Capture/`.
-- **Using Hermes (Recommended)**: Triage is executed via a one-shot Hermes CLI call (`hermes -z`). This leverages your logged-in credentials (with optional provider/model overrides in `System/config.json` configured via `init-zephyr.py`) and requires no plain-text API keys.
-- **Using Direct LLM API**: If you do not use Hermes, you can configure your API credentials (`ai_api_key`, `ai_base_url`, `ai_model`) in `config_local.json` or `System/config.json` via the setup wizard. The worker will call the LLM directly.
+1. Write freely in `Capture/`.
+2. Ask an agent to prepare a proposal if useful. The agent follows `System/PROTOCOL.md`; it must not treat a proposal as authorization.
+3. Review a proposed project. Complete the project YAML (status, priority, deadline, area), then preview and apply its move:
 
-### Privacy note (important for GitHub)
+   ```bash
+   python3 System/zephyr-worker.py activate "Capture/Project.md" --approve --dry-run
+   python3 System/zephyr-worker.py activate "Capture/Project.md" --approve
+   ```
 
-This repo is a **template**, not a personal vault dump:
-- Personal second brain lives at `~/Obsidian/Zephyr` (default) and should stay off the public remote.
-- Tracked in the template: dashboards (`Home.md`, `Capture/Capture.md`, `Brain/Brain.md`), templates, skills, scripts, minimal `.obsidian` config + `zephyr-dashboard` CSS.
-- Gitignored: `System/config.json`, `config_local.json`, personal notes under `Capture/**` and `Brain/**` (except the two dashboards), `System/index.json`, `IDEA.md`, and **all** `.obsidian/plugins/**` binaries.
-- `AGENTS.md` / `GEMINI.md` stay as `{{placeholder}}` templates so personal names never leak into git.
+4. When completed or stopped, update its status and archive it explicitly:
 
----
+   ```bash
+   python3 System/zephyr-worker.py archive "Active/Project.md" --approve --dry-run
+   python3 System/zephyr-worker.py archive "Active/Project.md" --approve
+   ```
 
-## Positioning
+5. Use `health` to see validation and link issues. `fix-links --approve --dry-run` previews only case-safe wikilink repairs.
 
-- **Lightweight & Invisible**: no forced folder micro-management.
-- **Hermes-Agent Native**: clean frontmatter + `System/index.json` context cache.
-- **Local-First & Plain-Text**: Markdown + flat wikilinks (`[[Note Name]]`).
-- **Capture-First, Classify-Later**: humans dump thoughts; workers/agents organize.
-- **Active Growth**: dream-mode (nightly) and slow-mode (weekly) skills for healing and review.
+## Privacy and boundaries
 
----
+The core works offline after dependencies are installed. It sends no note content to an LLM API and has no API-key setting or cloud fallback. External agent use is separate and user-controlled. Keep personal vaults and `System/config.json` outside the public template remote.
 
-## Vault Layout
+## Layout
 
-```
+```text
 Zephyr/
-├── Capture/          # Inbox + daily logs
-├── Brain/            # Projects, evergreen notes, areas, MOCs
-└── System/           # Config, templates, skills, index, scripts
-    ├── DESIGN.md     # Design system (binding for dashboards/CSS)
-    ├── index.json    # Compiled metadata cache
-    ├── skills/       # Agent routines
-    ├── templates/
-    └── zephyr-*.py   # Watcher + worker
+├── Capture/     # raw or unconfirmed material
+├── Active/      # explicitly approved active projects
+├── Brain/       # durable knowledge
+├── Archive/     # completed/stopped records
+└── System/      # protocol, scripts, templates, index, status
 ```
 
----
-
-## Automation
-
-1. **Watcher / Worker** (`zephyr-watcher.py`, `zephyr-worker.py`)
-   - Watches `Capture/` + `Brain/`
-   - Triggers reactive inbox triage on capture notes changes
-   - Compiles `System/index.json` and heals case-mismatched wikilinks
-   - Runs git sync only through the explicit `python3 System/zephyr-worker.py sync` command
-2. **Reactive Inbox Triage**: Classifies eligible raw captures instantly using Hermes CLI or direct API fallback, preserves body text, and indexes the result.
-3. **Dream Mode (nightly skill)**: suggest connections; draft MOCs.
-4. **Slow Mode (weekly skill)**: vault health + project briefing.
-
----
-
-## Governance
-
-- **AUTO**: classify Capture → Brain, standard tags, index compile, link heal, git sync.
-- **PROPOSE**: deletes, body edits of human prose, status/deadline changes (use `-- draft.md`).
-- **NEVER**: touch secrets, rewrite old git history, or casually mutate `.obsidian/` outside init.
-
----
-
-## Daily Loop
-
-1. Open `Home.md` or press **Today's Log**.
-2. Capture bullets under `## Capture` (`- idea: ...`).
-3. The background watcher instantly triggers triage and indexes the captures reactively.
-4. Expand promising ideas with `System/skills/idea-expansion.md`.
-
-Chinese README: [README-ZH.md](./README-ZH.md)
+Chinese README: [README-ZH.md](README-ZH.md)

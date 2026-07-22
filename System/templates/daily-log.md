@@ -61,7 +61,7 @@ if (currentFile) {
 - Log wins and progress here.
 
 ## Capture
-Capture raw thoughts, links, and ideas here. The agent will parse these in the background.
+Capture raw thoughts, links, and ideas here. Ask an agent for a proposal when you want one; nothing is committed automatically.
 
 ## Log
 - **10:00**: Event or task log.

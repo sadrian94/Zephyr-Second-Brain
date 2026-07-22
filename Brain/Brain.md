@@ -11,6 +11,7 @@ const navContainer = headerContainer.createEl("div", { cls: "nav-header" });
 const links = [
     { name: "Home", target: "Home" },
     { name: "Capture Inbox", target: "Capture" },
+    { name: "Active Projects", target: "Active" },
     { name: "Brain", target: "Brain" }
 ];
 for (let link of links) {
@@ -84,7 +85,7 @@ const leftColumn = gridContainer.createEl("div");
 const rightColumn = gridContainer.createEl("div");
 
 // --- Left Column: Active Projects ---
-const projects = dv.pages('"Brain"')
+const projects = dv.pages('"Active"')
     .filter(p => p.type === 'project' && p.status === 'active')
     .sort(p => p.deadline || '9999-12-31', 'asc');
 
@@ -180,7 +181,7 @@ if (areas.length > 0) {
 }
 
 // --- Right Column: Other Projects ---
-const otherProjects = dv.pages('"Brain"')
+const otherProjects = dv.pages('"Archive"')
     .filter(p => p.type === 'project' && p.status !== 'active')
     .sort(p => p.file.name, 'asc');
 
@@ -215,5 +216,5 @@ dv.container.addEventListener("click", (e) => {
 ```
 
 <div class="system-status-bar">
-    <span>Zephyr Second Brain V0.1.0</span> | <span>Background Worker Status: Active</span>
+    <span>Zephyr Second Brain v0.2</span> | <span>Durable knowledge</span>
 </div>

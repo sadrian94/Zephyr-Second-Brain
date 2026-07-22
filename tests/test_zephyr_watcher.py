@@ -32,6 +32,15 @@ class WatcherWorkerInvocationTests(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def test_run_worker_reports_child_failure(self):
+        module = load_watcher_module()
+        completed = MagicMock(stdout="", stderr="bad index", returncode=1)
+
+        with patch.object(module.subprocess, "run", return_value=completed):
+            succeeded = module.run_worker()
+
+        self.assertFalse(succeeded)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,622 +1,505 @@
-import os
+#!/usr/bin/env python3
+"""Zephyr's deterministic, local-only vault maintenance commands.
+
+This module deliberately never invokes an agent CLI or an LLM API. Agents may
+prepare proposals, but people use ``activate`` and ``archive`` to apply the
+resulting lifecycle changes.
+"""
+
+from __future__ import annotations
+
+import argparse
 import json
+import os
 import re
-import subprocess
-from datetime import datetime
+import sys
+import tempfile
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Any
 
-VAULT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CAPTURE_DIR = os.path.join(VAULT_DIR, "Capture")
-BRAIN_DIR = os.path.join(VAULT_DIR, "Brain")
-SYSTEM_DIR = os.path.join(VAULT_DIR, "System")
-INDEX_PATH = os.path.join(SYSTEM_DIR, "index.json")
+try:
+    import yaml
+except ImportError as exc:  # pragma: no cover - exercised by installation docs
+    raise SystemExit("PyYAML is required. Run: python -m pip install -r requirements.txt") from exc
 
-def load_index():
-    if not os.path.exists(INDEX_PATH):
-        return {}
-    with open(INDEX_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
 
-def save_index(index):
-    with open(INDEX_PATH, "w", encoding="utf-8") as f:
-        json.dump(index, f, indent=4)
+VAULT_DIR = Path(__file__).resolve().parent.parent
+CAPTURE_DIR = VAULT_DIR / "Capture"
+ACTIVE_DIR = VAULT_DIR / "Active"
+BRAIN_DIR = VAULT_DIR / "Brain"
+ARCHIVE_DIR = VAULT_DIR / "Archive"
+SYSTEM_DIR = VAULT_DIR / "System"
+INDEX_PATH = SYSTEM_DIR / "index.json"
+STATUS_PATH = SYSTEM_DIR / "status.json"
+CONTENT_DIRS = (CAPTURE_DIR, ACTIVE_DIR, BRAIN_DIR, ARCHIVE_DIR)
+INVALID_FILENAME = re.compile(r'[\\/:*?"<>|]')
+WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
 
-def parse_frontmatter(content):
+
+class FrontmatterError(ValueError):
+    """A note has an absent, malformed, or non-mapping frontmatter block."""
+
+
+class CommandError(ValueError):
+    """A requested lifecycle operation is not safe to perform."""
+
+
+def ensure_roots() -> None:
+    """Create Zephyr-owned empty roots; never relocate content implicitly."""
+    for directory in (*CONTENT_DIRS, SYSTEM_DIR):
+        Path(directory).mkdir(parents=True, exist_ok=True)
+
+
+def _frontmatter_bounds(content: str) -> tuple[int, int] | None:
     if not content.startswith("---"):
+        return None
+    first_line_end = content.find("\n")
+    if first_line_end < 0 or content[:first_line_end].strip() != "---":
+        return None
+    match = re.search(r"(?m)^---\s*$", content[first_line_end + 1 :])
+    if not match:
+        raise FrontmatterError("frontmatter begins with --- but has no closing ---")
+    start = first_line_end + 1
+    end = start + match.start()
+    body_start = start + match.end()
+    if body_start < len(content) and content[body_start] == "\n":
+        body_start += 1
+    return start, end, body_start
+
+
+def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
+    """Parse standard YAML frontmatter without modifying the Markdown body."""
+    bounds = _frontmatter_bounds(content)
+    if bounds is None:
         return {}, content
-    end = content.find("---", 3)
-    if end == -1:
-        return {}, content
-    fm_text = content[3:end]
-    body = content[end+3:].strip()
+    start, end, body_start = bounds
+    try:
+        data = yaml.safe_load(content[start:end])
+    except yaml.YAMLError as exc:
+        raise FrontmatterError(f"invalid YAML frontmatter: {exc.problem or exc}") from exc
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        raise FrontmatterError("frontmatter must be a YAML mapping")
+    return data, content[body_start:]
 
-    fm = {}
-    for line in fm_text.splitlines():
-        if ":" in line:
-            k, v = line.split(":", 1)
-            k = k.strip()
-            v = v.strip().strip('"').strip("'")
-            if v.startswith("[") and v.endswith("]"):
-                v = [x.strip().strip('"').strip("'") for x in v[1:-1].split(",") if x.strip()]
-            fm[k] = v
-    return fm, body
 
-def find_eligible_inbox_notes():
-    """Return unclassified Capture notes suitable for Hermes inbox triage."""
-    eligible = []
-    if not os.path.exists(CAPTURE_DIR):
-        return eligible
+def _safe_json(value: Any) -> Any:
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _safe_json(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_safe_json(item) for item in value]
+    return value
 
-    for fname in sorted(os.listdir(CAPTURE_DIR)):
-        if (
-            not fname.endswith(".md")
-            or fname == "Home.md"
-            or fname.endswith(" -- draft.md")
-        ):
+
+def _atomic_write(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
+def load_index() -> dict[str, Any]:
+    try:
+        with INDEX_PATH.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_index(index: dict[str, Any]) -> None:
+    _atomic_write(INDEX_PATH, json.dumps(_safe_json(index), indent=2, ensure_ascii=False) + "\n")
+
+
+def write_status(command: str, success: bool, exit_code: int, message: str) -> None:
+    payload = {
+        "last_run": datetime.now(timezone.utc).isoformat(),
+        "command": command,
+        "success": success,
+        "exit_code": exit_code,
+        "message": message[:500],
+    }
+    try:
+        _atomic_write(STATUS_PATH, json.dumps(payload, indent=2) + "\n")
+    except OSError:
+        # The command's real result is still more important than a diagnostic file.
+        pass
+
+
+def _clean_body_for_summary(body: str) -> str:
+    body = re.sub(r"```.*?```", "", body, flags=re.DOTALL)
+    body = re.sub(r"<[^>]+>", "", body)
+    kept: list[str] = []
+    for line in body.splitlines():
+        text = line.strip()
+        if not text or text.startswith(("#", "```")):
             continue
+        text = re.sub(r"^[-*+]\s+(?:\[[ xX]\]\s*)?", "", text)
+        text = re.sub(r"`[^`]+`", "", text)
+        text = re.sub(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", r"\1", text)
+        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text).strip()
+        if text:
+            kept.append(text)
+    return " ".join(kept)
 
-        fpath = os.path.join(CAPTURE_DIR, fname)
+
+def _summary_from_body(frontmatter: dict[str, Any], body: str) -> str:
+    if frontmatter.get("type") == "log":
+        focus = re.search(r"(?m)^##\s+Focus\s*\n-\s*(.+)$", body)
+        if focus:
+            return focus.group(1).strip()[:150]
+    summary = _clean_body_for_summary(body)
+    return summary[:150] + ("..." if len(summary) > 150 else "")
+
+
+def _relative(path: Path) -> str:
+    return path.resolve().relative_to(Path(VAULT_DIR).resolve()).as_posix()
+
+
+def _root_for(path: Path) -> Path | None:
+    resolved = path.resolve()
+    for root in CONTENT_DIRS:
         try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception as e:
-            print(f"Failed to read {fname}: {e}")
+            resolved.relative_to(Path(root).resolve())
+            return Path(root)
+        except ValueError:
             continue
+    return None
 
-        fm, _ = parse_frontmatter(content)
-        if fm.get("type") or fm.get("triage_status") == "needs_review":
+
+def _is_flat_markdown(path: Path) -> bool:
+    root = _root_for(path)
+    return root is not None and path.suffix.lower() == ".md" and path.parent.resolve() == root.resolve()
+
+
+def _date_string(value: Any) -> bool:
+    if isinstance(value, (date, datetime)):
+        return True
+    if not isinstance(value, str):
+        return False
+    try:
+        date.fromisoformat(value)
+        return True
+    except ValueError:
+        return False
+
+
+def validate_frontmatter(frontmatter: dict[str, Any], root: Path) -> list[str]:
+    errors: list[str] = []
+    note_type = frontmatter.get("type")
+    if root == CAPTURE_DIR and not note_type:
+        return errors  # Raw capture is deliberately valid without a commitment.
+    if note_type not in {"note", "log", "project"}:
+        return ["type must be one of: note, log, project (raw Capture notes may omit it)"]
+    tags = frontmatter.get("tags")
+    if note_type in {"note", "log"} and (not isinstance(tags, list) or not all(isinstance(tag, str) and tag for tag in tags)):
+        errors.append("tags must be a non-empty YAML list of strings")
+    if note_type == "log" and not _date_string(frontmatter.get("date")):
+        errors.append("log notes require date in YYYY-MM-DD format")
+    if note_type == "project":
+        if root not in {CAPTURE_DIR, ACTIVE_DIR, ARCHIVE_DIR}:
+            errors.append("project notes must live in Capture/, Active/, or Archive/")
+        if frontmatter.get("status") not in {"active", "paused", "completed", "stopped"}:
+            errors.append("project status must be active, paused, completed, or stopped")
+        if frontmatter.get("priority") not in {"high", "medium", "low"}:
+            errors.append("project priority must be high, medium, or low")
+        if not _date_string(frontmatter.get("deadline")):
+            errors.append("project deadline must be YYYY-MM-DD")
+        if not isinstance(frontmatter.get("area"), str) or not frontmatter["area"].strip():
+            errors.append("project area must be a non-empty string")
+    return errors
+
+
+def validate_note(path: Path) -> list[str]:
+    errors: list[str] = []
+    root = _root_for(path)
+    if root is None:
+        return ["path is outside Zephyr content roots"]
+    if not _is_flat_markdown(path):
+        return ["notes must be flat Markdown files directly inside a Zephyr content root"]
+    if INVALID_FILENAME.search(path.stem) or not path.stem.strip():
+        errors.append("filename is empty or contains a Windows-reserved character")
+    try:
+        content = path.read_text(encoding="utf-8")
+        frontmatter, _ = parse_frontmatter(content)
+    except (OSError, UnicodeError, FrontmatterError) as exc:
+        return [str(exc)]
+    errors.extend(validate_frontmatter(frontmatter, root))
+    return errors
+
+
+def _iter_notes() -> list[Path]:
+    notes: list[Path] = []
+    for directory in CONTENT_DIRS:
+        if not Path(directory).exists():
             continue
-        eligible.append(fpath)
+        notes.extend(path for path in sorted(Path(directory).glob("*.md")) if path.name != "Home.md")
+    return notes
 
+
+def validate_vault(machine_readable: bool = False) -> tuple[bool, list[dict[str, Any]]]:
+    ensure_roots()
+    issues: list[dict[str, Any]] = []
+    seen_titles: dict[str, Path] = {}
+    for path in _iter_notes():
+        for error in validate_note(path):
+            issues.append({"path": _relative(path), "error": error})
+        key = path.stem.casefold()
+        if key in seen_titles:
+            issues.append({"path": _relative(path), "error": f"title collides with {_relative(seen_titles[key])}"})
+        else:
+            seen_titles[key] = path
+    if machine_readable:
+        print(json.dumps({"valid": not issues, "issues": issues}, indent=2))
+    elif issues:
+        print("Validation found issues:")
+        for issue in issues:
+            print(f"  {issue['path']}: {issue['error']}")
+    else:
+        print(f"Validation passed for {len(_iter_notes())} notes.")
+    return not issues, issues
+
+
+def scan_unprocessed_ideas() -> list[dict[str, Any]]:
+    ideas: list[dict[str, Any]] = []
+    if not Path(CAPTURE_DIR).exists():
+        return ideas
+    for path in sorted(Path(CAPTURE_DIR).glob("*.md")):
+        try:
+            frontmatter, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, FrontmatterError):
+            continue
+        if frontmatter.get("type") != "log":
+            continue
+        in_capture = False
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if re.match(r"^##\s+Capture\b", line, flags=re.IGNORECASE):
+                in_capture = True
+                continue
+            if re.match(r"^##\s+", line):
+                in_capture = False
+            if in_capture:
+                match = re.match(r"^\s*-\s*idea:\s*(.+)$", line, flags=re.IGNORECASE)
+                if match and "[[" not in match.group(1):
+                    ideas.append({"source_log": _relative(path), "line_number": line_number, "text": match.group(1).strip()})
+    return ideas
+
+
+def find_eligible_inbox_notes() -> list[str]:
+    """Expose raw captures for user-invoked agent procedures; make no changes."""
+    eligible: list[str] = []
+    for path in sorted(Path(CAPTURE_DIR).glob("*.md")) if Path(CAPTURE_DIR).exists() else []:
+        if path.name == "Home.md" or path.name.endswith(" -- draft.md"):
+            continue
+        try:
+            frontmatter, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, FrontmatterError):
+            continue
+        if not frontmatter.get("type") and frontmatter.get("triage_status") != "needs_review":
+            eligible.append(str(path))
     return eligible
 
-def scan_unprocessed_ideas():
-    unprocessed = []
-    if not os.path.exists(CAPTURE_DIR):
-        return unprocessed
-    for fname in os.listdir(CAPTURE_DIR):
-        if not fname.endswith(".md") or fname == "Home.md":
-            continue
-        fpath = os.path.join(CAPTURE_DIR, fname)
+
+def compile_index() -> dict[str, Any]:
+    ensure_roots()
+    notes: dict[str, dict[str, Any]] = {}
+    invalid: list[dict[str, str]] = []
+    for path in _iter_notes():
         try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                content = f.read()
-        except Exception:
+            content = path.read_text(encoding="utf-8")
+            frontmatter, body = parse_frontmatter(content)
+        except (OSError, UnicodeError, FrontmatterError) as exc:
+            invalid.append({"path": _relative(path), "error": str(exc)})
             continue
-        fm, body = parse_frontmatter(content)
-        if fm.get("type") != "log":
-            continue
-
-        rel_path = fpath.replace(VAULT_DIR, "").replace("\\", "/").lstrip("/")
-        lines = content.splitlines()
-        in_capture_section = False
-        for idx, line in enumerate(lines):
-            # Track ## Capture section boundary
-            if re.match(r'^##\s+Capture', line):
-                in_capture_section = True
-                continue
-            elif re.match(r'^##\s+', line):
-                in_capture_section = False
-                continue
-            if not in_capture_section:
-                continue
-            # Match: idea lines (lightbulb or "idea:" prefix)
-            match = re.search(r'^\s*-\s*(?:idea:)\s*(.+)$', line)
-            if match:
-                idea_text = match.group(1).strip()
-                if idea_text and ("[[" not in idea_text or "]]" not in idea_text):
-                    unprocessed.append({
-                        "source_log": rel_path,
-                        "line_number": idx + 1,
-                        "text": idea_text
-                    })
-    return unprocessed
-
-def _clean_body_for_summary(body):
-    """Strip code/HTML/headings and return a compact plain-text summary source."""
-    # Remove fenced code blocks first (preserves surrounding prose)
-    body = re.sub(r'```.*?```', '', body, flags=re.DOTALL)
-    # Remove HTML tags
-    body = re.sub(r'<[^>]+>', '', body)
-    # Work line-by-line so heading stripping cannot wipe the whole note
-    kept = []
-    for line in body.splitlines():
-        s = line.strip()
-        if not s:
-            continue
-        if s.startswith('#'):
-            continue
-        if s.startswith('```'):
-            continue
-        # Drop pure list markers / task checkboxes that carry no text
-        if re.match(r'^[-*+]\s*\[[ xX]?\]\s*$', s):
-            continue
-        # Strip leading list markers but keep content
-        s = re.sub(r'^[-*+]\s+(?:\[[ xX]\]\s*)?', '', s)
-        s = re.sub(r'`[^`]+`', '', s)
-        s = re.sub(r'\[\[([^\]|]+)(?:\|[^\]]+)?\]\]', r'\1', s)
-        s = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', s)
-        s = s.strip()
-        if s:
-            kept.append(s)
-    return ' '.join(kept).strip()
-
-def _summary_from_body(fm, body):
-    """Build a readable index summary; prefer Focus for daily logs."""
-    if fm.get("type") == "log":
-        focus_match = re.search(r'(?m)^##\s+Focus\s*\n-\s*(.+)$', body)
-        if focus_match:
-            text = focus_match.group(1).strip()
-            if text:
-                return text[:150] + ("..." if len(text) > 150 else "")
-        idea_match = re.search(r'(?m)^-\s*(?:idea:)\s*(.+)$', body)
-        if idea_match:
-            text = idea_match.group(1).strip()
-            if text:
-                return text[:150] + ("..." if len(text) > 150 else "")
-
-    clean_body = _clean_body_for_summary(body)
-    if not clean_body:
-        # Last resort: first non-empty non-heading line from raw body
-        for line in body.splitlines():
-            s = line.strip()
-            if s and not s.startswith('#') and not s.startswith('```') and not s.startswith('---'):
-                clean_body = s
-                break
-    if not clean_body:
-        return ""
-    return clean_body[:150] + ("..." if len(clean_body) > 150 else "")
-
-def compile_index():
-    print("Compiling index.json...")
-    old_index_data = load_index()
-    old_notes = old_index_data.get("notes", {})
-    new_notes = {}
-
-    def scan_dir(dpath):
-        if not os.path.exists(dpath):
-            return
-        for fname in os.listdir(dpath):
-            if not fname.endswith(".md") or fname == "Home.md":
-                continue
-            fpath = os.path.join(dpath, fname)
-            try:
-                mtime = os.path.getmtime(fpath)
-            except Exception:
-                continue
-
-            stem = fname.replace(".md", "")
-            rel_path = fpath.replace(VAULT_DIR, "").replace("\\", "/").lstrip("/")
-
-            # Check if cache is valid (stem exists, path matches, mtime matches)
-            if (stem in old_notes
-                and old_notes[stem].get("path") == rel_path
-                and old_notes[stem].get("mtime") == mtime):
-                new_notes[stem] = old_notes[stem]
-                continue
-
-            print(f"  [Cache Miss] Parsing: {fname}")
-            try:
-                with open(fpath, "r", encoding="utf-8") as f:
-                    content = f.read()
-            except Exception:
-                continue
-
-            fm, body = parse_frontmatter(content)
-            summary = _summary_from_body(fm, body)
-
-            links = re.findall(r'\[\[(.*?)(?:\|(.*?))?\]\]', body)
-            resolved_links = []
-            for target, display in links:
-                resolved_links.append(target.strip())
-
-            new_notes[stem] = {
-                "title": stem,
-                "path": rel_path,
-                "type": fm.get("type", "note"),
-                "tags": fm.get("tags", []),
-                "summary": summary,
-                "links": resolved_links,
-                "deadline": fm.get("deadline", ""),
-                "status": fm.get("status", ""),
-                "priority": fm.get("priority", ""),
-                "date": fm.get("date", ""),
-                "mtime": mtime
-            }
-
-    scan_dir(CAPTURE_DIR)
-    scan_dir(BRAIN_DIR)
-
-    unprocessed_ideas = scan_unprocessed_ideas()
-
-    index_data = {
-        "notes": new_notes,
-        "unprocessed_ideas": unprocessed_ideas
-    }
-    save_index(index_data)
-    print(f"Compiled {len(new_notes)} notes and {len(unprocessed_ideas)} unprocessed ideas into index.json")
-
-def heal_links():
-    print("Healing broken links...")
-    index_data = load_index()
-    notes = index_data.get("notes", {})
-    valid_stems_lower = {k.lower(): k for k in notes.keys()}
-
-    def heal_dir(dpath):
-        if not os.path.exists(dpath):
-            return
-        for fname in os.listdir(dpath):
-            if not fname.endswith(".md") or fname == "Home.md":
-                continue
-            fpath = os.path.join(dpath, fname)
-            try:
-                with open(fpath, "r", encoding="utf-8") as f:
-                    content = f.read()
-            except Exception:
-                continue
-
-            modified = False
-
-            def replacer(match):
-                nonlocal modified
-                orig_target = match.group(1)
-                display = match.group(2) if match.group(2) else ""
-
-                clean_target = orig_target.replace(".md", "").strip()
-                target_lower = clean_target.lower()
-
-                if target_lower in valid_stems_lower:
-                    canonical = valid_stems_lower[target_lower]
-                    if canonical != orig_target:
-                        modified = True
-                        suffix = f"|{display}" if display else ""
-                        return f"[[{canonical}{suffix}]]"
-                return match.group(0)
-
-            new_content = re.sub(r'\[\[(.*?)(?:\|(.*?))?\]\]', replacer, content)
-            if modified:
-                try:
-                    with open(fpath, "w", encoding="utf-8") as f:
-                        f.write(new_content)
-                    print(f"Healed links in: {fname}")
-                except Exception as e:
-                    print(f"Failed to save healed file {fname}: {e}")
-
-    heal_dir(CAPTURE_DIR)
-    heal_dir(BRAIN_DIR)
-
-def run_git_cmd(args):
-    full_args = ["git", "-C", VAULT_DIR] + args
-    res = subprocess.run(full_args, capture_output=True, text=True, encoding="utf-8")
-    return res.returncode, res.stdout.strip(), res.stderr.strip()
-
-def sync_git():
-    git_dir = os.path.join(VAULT_DIR, ".git")
-    if not os.path.exists(git_dir):
-        print("Not a git repository. Skipping git sync.")
-        return
-
-    # Check if remote is configured
-    ret_rem, rem_out, _ = run_git_cmd(["remote"])
-    has_remote = (ret_rem == 0 and bool(rem_out))
-
-    # Check git status
-    ret_stat, stat_out, _ = run_git_cmd(["status", "--porcelain"])
-    if ret_stat != 0:
-        print("Failed to check Git status.")
-        return
-
-    if stat_out:
-        print("Detected local changes. Auto-committing...")
-        run_git_cmd(["add", "."])
-        commit_msg = f"zephyr-sync: auto-commit at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        ret_cmt, _, cmt_err = run_git_cmd(["commit", "-m", commit_msg])
-        if ret_cmt == 0:
-            print("Auto-committed changes.")
-        else:
-            print(f"Failed to commit changes: {cmt_err}")
-            return
-    else:
-        print("No local changes to commit.")
-
-    if has_remote:
-        print("Git remote detected. Pulling remote changes with rebase...")
-        ret_pull, pull_out, pull_err = run_git_cmd(["pull", "--rebase"])
-        if ret_pull != 0:
-            print("\n" + "="*60)
-            print("[WARNING: GIT CONFLICT / ERROR DETECTED DURING SYNC]")
-            print(f"Error details:\n{pull_err or pull_out}")
-            print("Aborting rebase to revert to safety...")
-            run_git_cmd(["rebase", "--abort"])
-            print("Successfully aborted rebase. Local commits remain intact.")
-            print("Please resolve the git conflict manually.")
-            print("="*60 + "\n")
-            return
-
-        print("Successfully pulled and rebased remote changes.")
-
-        print("Pushing commits to remote...")
-        ret_push, _, push_err = run_git_cmd(["push"])
-        if ret_push == 0:
-            print("Successfully pushed changes to remote.")
-        else:
-            print(f"Failed to push changes: {push_err}")
-    else:
-        print("No Git remote configured. Skipping remote sync.")
-
-def load_config():
-    config_paths = [
-        os.path.join(VAULT_DIR, "config_local.json"),
-        os.path.join(SYSTEM_DIR, "config.json")
-    ]
-    config = {}
-    for p in config_paths:
-        if os.path.exists(p):
-            try:
-                with open(p, "r", encoding="utf-8") as f:
-                    config.update(json.load(f))
-            except Exception as e:
-                print(f"Failed to load config from {p}: {e}")
-    return config
-
-def write_frontmatter_and_move(fpath, new_fm_data, content, note_type, title):
-    existing_fm, body = parse_frontmatter(content)
-    merged_fm = existing_fm.copy()
-    merged_fm.update(new_fm_data)
-    
-    # If note is successfully classified, remove triage_status
-    if note_type and "triage_status" in merged_fm:
-        del merged_fm["triage_status"]
-    
-    # Generate new frontmatter text
-    fm_lines = ["---"]
-    for k, v in merged_fm.items():
-        if isinstance(v, list):
-            list_str = ", ".join(f'"{x}"' for x in v)
-            fm_lines.append(f"{k}: [{list_str}]")
-        else:
-            fm_lines.append(f"{k}: {v}")
-    fm_lines.append("---")
-    
-    new_content = "\n".join(fm_lines) + "\n\n" + body
-    
-    orig_name = os.path.basename(fpath)
-    if not note_type or not title:
-        # Keep in Capture, just update frontmatter
-        dest_path = fpath
-    else:
-        # Determine directory
-        if note_type == "log":
-            dest_dir = CAPTURE_DIR
-        else:
-            dest_dir = BRAIN_DIR
-            
-        # Avoid filename collisions
-        dest_filename = f"{title}.md"
-        dest_path = os.path.join(dest_dir, dest_filename)
-        
-        # Check collision
-        if os.path.exists(dest_path) and dest_path.lower() != fpath.lower():
-            counter = 1
-            while True:
-                dest_filename = f"{title}-{counter}.md"
-                dest_path = os.path.join(dest_dir, dest_filename)
-                if not os.path.exists(dest_path):
-                    break
-                counter += 1
-    
-    try:
-        with open(dest_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
-        if dest_path.lower() != fpath.lower():
-            os.remove(fpath)
-            print(f"    Moved and renamed: {orig_name} -> {os.path.basename(dest_path)}")
-        else:
-            print(f"    Updated: {orig_name}")
-        return True
-    except Exception as e:
-        print(f"    Error writing/moving file: {e}")
-        return False
-
-def try_triage_via_hermes():
-    import shutil
-    print("Attempting triage via Hermes CLI...")
-    hermes_cmd = shutil.which("hermes")
-    if not hermes_cmd:
-        print("  Hermes CLI not found on PATH.")
-        return False
-
-    prompt = (
-        "First read AGENTS.md and System/skills/inbox-triage.md. "
-        "Follow that protocol exactly to process eligible unclassified Capture/ notes. "
-        "Then run 'python3 System/zephyr-worker.py index'."
-    )
-
-    config = load_config()
-    hermes_provider = config.get("hermes_provider")
-    hermes_model = config.get("hermes_model")
-
-    cmd = [hermes_cmd]
-    if hermes_provider:
-        cmd.extend(["--provider", hermes_provider])
-    if hermes_model:
-        cmd.extend(["--model", hermes_model])
-    cmd.extend(["-z", prompt])
-    cmd_str_list = [os.path.basename(cmd[0])] + cmd[1:-1] + [f'"{cmd[-1][:30]}..."']
-    print(f"  Running: {' '.join(cmd_str_list)}")
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            cwd=VAULT_DIR
-        )
-        if result.returncode == 0:
-            print("Hermes CLI triage succeeded:")
-            if result.stdout:
-                print(result.stdout)
-            return True
-        else:
-            print(f"  Hermes CLI exited with code {result.returncode}.")
-            if result.stderr:
-                print(f"  Hermes Error: {result.stderr.strip()}")
-            return False
-    except Exception as e:
-        print(f"  Failed to run Hermes CLI: {e}")
-        return False
-
-def try_triage_via_local_api(eligible_notes):
-    import urllib.request
-    import urllib.error
-
-    config = load_config()
-    api_key = config.get("ai_api_key")
-    base_url = config.get("ai_base_url")
-    model = config.get("ai_model", "gpt-4o-mini")
-
-    if not api_key or api_key == "<AI_API_KEY>":
-        print("  Local AI API key not configured or is placeholder.")
-        return False
-
-    if not base_url:
-        base_url = "https://api.openai.com/v1"
-
-    print(f"Attempting local API triage using model: {model}...")
-
-    success_count = 0
-    review_count = 0
-
-    for fpath in eligible_notes:
-        fname = os.path.basename(fpath)
-        print(f"  Processing {fname}...")
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                note_content = f.read()
-        except Exception as e:
-            print(f"    Failed to read note file: {e}")
-            continue
-
-        system_prompt = (
-            "You are a Zephyr vault inbox triage assistant. Classify the user's raw note.\n\n"
-            "Rules:\n"
-            "1. Output valid JSON only, inside a Markdown code block with 'json' identifier.\n"
-            "2. Determine the 'type' of the note: 'log', 'note', or 'project'.\n"
-            "   - 'log': Daily logs, checklists, meeting minutes.\n"
-            "   - 'project': Active/paused projects with deadlines/priority.\n"
-            "   - 'note': Evergreen notes, resources, areas.\n"
-            "3. Generate 2 to 4 lowercase, hyphenated topic tags (e.g. ['productivity', 'python-dev']).\n"
-            "4. Propose a unique, Windows-safe filename/title (e.g. 'python-subprocess-guide'). Do not include file extension.\n"
-            "5. If you cannot confidently classify it or name it, set 'triage_status' to 'needs_review'.\n\n"
-            "Response format must be exactly:\n"
-            "```json\n"
-            "{\n"
-            "  \"type\": \"log|note|project\",\n"
-            "  \"tags\": [\"tag1\", \"tag2\"],\n"
-            "  \"title\": \"unique-windows-safe-title\",\n"
-            "  \"triage_status\": \"ok|needs_review\"\n"
-            "}\n"
-            "```"
-        )
-
-        user_content = f"Note Filename: {fname}\n\nNote Content:\n{note_content}"
-
-        url = f"{base_url.rstrip('/')}/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
+        errors = validate_frontmatter(frontmatter, _root_for(path) or Path(CAPTURE_DIR))
+        invalid.extend({"path": _relative(path), "error": error} for error in errors)
+        title = path.stem
+        entry = {
+            "title": title,
+            "path": _relative(path),
+            "root": (_root_for(path) or Path(CAPTURE_DIR)).name,
+            "type": frontmatter.get("type", "capture"),
+            "tags": frontmatter.get("tags", []),
+            "summary": _summary_from_body(frontmatter, body),
+            "links": [match.strip() for match in WIKILINK.findall(body)],
+            "deadline": frontmatter.get("deadline", ""),
+            "status": frontmatter.get("status", ""),
+            "priority": frontmatter.get("priority", ""),
+            "date": frontmatter.get("date", ""),
+            "mtime": path.stat().st_mtime,
         }
-        data = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content}
-            ],
-            "temperature": 0.1
-        }
-        
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(data).encode("utf-8"),
-            headers=headers,
-            method="POST"
-        )
+        if title in notes:
+            invalid.append({"path": _relative(path), "error": f"duplicate title: {title}"})
+        notes[title] = _safe_json(entry)
+    index = {"version": 2, "notes": notes, "unprocessed_ideas": scan_unprocessed_ideas(), "invalid_notes": invalid}
+    save_index(index)
+    print(f"Indexed {len(notes)} notes; {len(invalid)} validation issue(s).")
+    return index
 
-        try:
-            with urllib.request.urlopen(req, timeout=30) as response:
-                resp_data = json.loads(response.read().decode("utf-8"))
-                reply = resp_data["choices"][0]["message"]["content"]
-        except Exception as e:
-            print(f"    API Request failed: {e}")
-            return False
 
-        match = re.search(r'```json\s*(.*?)\s*```', reply, re.DOTALL)
-        if not match:
-            match_json = re.search(r'\{.*\}', reply, re.DOTALL)
-            if match_json:
-                json_str = match_json.group(0)
-            else:
-                json_str = reply
-        else:
-            json_str = match.group(1)
+def link_report() -> list[dict[str, str]]:
+    index = load_index()
+    notes = index.get("notes", {})
+    canonical = {title.casefold(): title for title in notes}
+    issues: list[dict[str, str]] = []
+    for title, entry in notes.items():
+        for target in entry.get("links", []):
+            actual = canonical.get(target.casefold())
+            if actual is None:
+                issues.append({"path": entry["path"], "link": target, "error": "broken link"})
+            elif actual != target:
+                issues.append({"path": entry["path"], "link": target, "error": f"case mismatch; use {actual}"})
+    return issues
 
-        try:
-            result_json = json.loads(json_str)
-        except Exception as e:
-            print(f"    JSON decode error: {e}. Raw JSON: {json_str}")
-            continue
 
-        triage_status = result_json.get("triage_status", "ok")
-        note_type = result_json.get("type")
-        tags = result_json.get("tags", [])
-        title = result_json.get("title", "").strip()
+def heal_links() -> list[dict[str, str]]:
+    """Compatibility name: report links only. Repairs require ``fix-links``."""
+    issues = link_report()
+    if issues:
+        print(f"Link report: {len(issues)} issue(s). Run fix-links --approve to repair only case mismatches.")
+    else:
+        print("Link report: no broken or case-mismatched links.")
+    return issues
 
-        if title:
-            title = re.sub(r'[\\/:*?"<>|]', '', title).strip().replace(" ", "-").lower()
 
-        if triage_status == "needs_review" or not note_type or not title:
-            print(f"    Note marked as needs_review or missing required fields.")
-            write_frontmatter_and_move(fpath, {"triage_status": "needs_review"}, note_content, None, None)
-            review_count += 1
-        else:
-            print(f"    Classified as '{note_type}' with title '{title}' and tags {tags}")
-            success = write_frontmatter_and_move(fpath, {"type": note_type, "tags": tags, "created": datetime.today().strftime('%Y-%m-%d')}, note_content, note_type, title)
-            if success:
-                success_count += 1
-            else:
-                review_count += 1
-
-    print(f"Local API Triage completed: processed={success_count}, review={review_count}")
-    compile_index()
-    heal_links()
-    return True
-
-def run_triage():
-    eligible_notes = find_eligible_inbox_notes()
-    if not eligible_notes:
-        print("No eligible notes for triage. Running standard index compiling...")
+def fix_links(approve: bool, dry_run: bool) -> int:
+    if not approve:
+        raise CommandError("fix-links changes note text; rerun with --approve after review")
+    index = load_index()
+    canonical = {title.casefold(): title for title in index.get("notes", {})}
+    changed = 0
+    for path in _iter_notes():
+        content = path.read_text(encoding="utf-8")
+        def replace(match: re.Match[str]) -> str:
+            target, display = match.group(1), match.group(2)
+            actual = canonical.get(target.strip().casefold())
+            if actual and actual != target.strip():
+                suffix = f"|{display}" if display else ""
+                return f"[[{actual}{suffix}]]"
+            return match.group(0)
+        revised = re.sub(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", replace, content)
+        if revised != content:
+            changed += 1
+            print(f"{'Would repair' if dry_run else 'Repaired'}: {_relative(path)}")
+            if not dry_run:
+                _atomic_write(path, revised)
+    if not dry_run:
         compile_index()
-        heal_links()
+    return changed
+
+
+def _resolve_note(value: str, root: Path) -> Path:
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = Path(VAULT_DIR) / candidate
+        if not candidate.exists():
+            candidate = Path(root) / value
+    if candidate.suffix.lower() != ".md":
+        candidate = candidate.with_suffix(".md")
+    candidate = candidate.resolve()
+    try:
+        candidate.relative_to(Path(root).resolve())
+    except ValueError as exc:
+        raise CommandError(f"note must be inside {Path(root).name}/") from exc
+    if not candidate.is_file():
+        raise CommandError(f"note does not exist: {_relative(candidate) if candidate.exists() else value}")
+    return candidate
+
+
+def _render_note(frontmatter: dict[str, Any], body: str) -> str:
+    return "---\n" + yaml.safe_dump(frontmatter, allow_unicode=True, sort_keys=False).strip() + "\n---\n\n" + body.lstrip("\n")
+
+
+def _move_note(source: Path, destination_root: Path, frontmatter: dict[str, Any], body: str, dry_run: bool) -> Path:
+    destination = Path(destination_root) / source.name
+    if destination.exists() and destination.resolve() != source.resolve():
+        raise CommandError(f"destination collision: {_relative(destination)}; rename one note and retry")
+    if dry_run:
+        print(f"Would move {_relative(source)} -> {_relative(destination)}")
+        return destination
+    content = _render_note(frontmatter, body)
+    # Writing the complete destination before removing the source keeps the source
+    # recoverable if a disk or rename operation fails.
+    _atomic_write(destination, content)
+    try:
+        source.unlink()
+    except OSError as exc:
+        raise CommandError(f"destination was written but source remains at {_relative(source)}; remove it manually after verifying {destination.name}: {exc}") from exc
+    print(f"Moved {_relative(source)} -> {_relative(destination)}")
+    return destination
+
+
+def activate(note: str, approve: bool, dry_run: bool) -> Path:
+    if not approve:
+        raise CommandError("activation requires explicit approval: add --approve")
+    source = _resolve_note(note, Path(CAPTURE_DIR))
+    content = source.read_text(encoding="utf-8")
+    frontmatter, body = parse_frontmatter(content)
+    if frontmatter.get("type") != "project":
+        raise CommandError("activation requires type: project in the Capture note; triage suggestions are not commitments")
+    errors = validate_frontmatter(frontmatter, Path(CAPTURE_DIR))
+    if errors:
+        raise CommandError("cannot activate invalid project: " + "; ".join(errors))
+    return _move_note(source, Path(ACTIVE_DIR), frontmatter, body, dry_run)
+
+
+def archive(note: str, approve: bool, force: bool, dry_run: bool) -> Path:
+    if not approve:
+        raise CommandError("archiving requires explicit approval: add --approve")
+    source = _resolve_note(note, Path(ACTIVE_DIR))
+    frontmatter, body = parse_frontmatter(source.read_text(encoding="utf-8"))
+    if frontmatter.get("type") != "project":
+        raise CommandError("only project notes may be archived")
+    status = frontmatter.get("status")
+    if status not in {"completed", "stopped"} and not force:
+        raise CommandError("archive requires status: completed or stopped; use --force only after an explicit review")
+    errors = validate_frontmatter(frontmatter, Path(ACTIVE_DIR))
+    if errors:
+        raise CommandError("cannot archive invalid project: " + "; ".join(errors))
+    return _move_note(source, Path(ARCHIVE_DIR), frontmatter, body, dry_run)
+
+
+def migrate_archive(apply: bool, dry_run: bool) -> int:
+    ensure_roots()
+    legacy = Path(SYSTEM_DIR) / "Archive"
+    candidates = sorted(legacy.glob("*.md")) if legacy.exists() else []
+    if not candidates:
+        print("No legacy System/Archive Markdown notes to migrate.")
         return 0
+    for source in candidates:
+        destination = Path(ARCHIVE_DIR) / source.name
+        if destination.exists():
+            raise CommandError(f"migration collision: {_relative(destination)}")
+        print(f"{'Would move' if dry_run or not apply else 'Moving'} {_relative(source)} -> {_relative(destination)}")
+    if apply and not dry_run:
+        for source in candidates:
+            os.replace(source, Path(ARCHIVE_DIR) / source.name)
+        compile_index()
+    elif not apply:
+        print("No files changed. Review the list and rerun with --apply (or use --dry-run explicitly).")
+    return len(candidates)
 
-    print(f"Found {len(eligible_notes)} eligible notes for triage.")
 
-    if try_triage_via_hermes():
-        return 0
+def sync_git() -> int:
+    print("Git sync is intentionally not automated by Zephyr v0.2. Use your normal, reviewed Git workflow.")
+    return 0
 
-    if try_triage_via_local_api(eligible_notes):
-        return 0
 
-    print("[WARNING] Neither Hermes CLI nor direct LLM API configuration is available/successful.")
-    print("Please login to Hermes CLI (hermes setup) or configure ai_api_key in config_local.json.")
-    print("Running standard index compiling instead...")
-    compile_index()
-    heal_links()
-    return 1
-
-def run_mode(mode):
-    """Run a deterministic worker mode and return a process exit code."""
-    if mode in {"all", "fast", "index"}:
+def run_mode(mode: str) -> int:
+    """Backward-compatible programmatic interface for deterministic maintenance."""
+    if mode in {"index", "fast", "all"}:
         compile_index()
         heal_links()
         return 0
@@ -624,15 +507,77 @@ def run_mode(mode):
         sync_git()
         return 0
     if mode == "triage":
-        return run_triage()
-
-    print("Unknown mode. Use one of: index, fast, all, sync, triage.")
+        print("Triage is an explicit agent procedure, not a core worker command. Read System/PROTOCOL.md.")
+        return 2
+    print("Unknown mode. Use: index, validate, health, fix-links, activate, archive, migrate, or sync.")
     return 2
 
 
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Zephyr deterministic local vault tools")
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("index")
+    subparsers.add_parser("fast")
+    subparsers.add_parser("all")
+    subparsers.add_parser("sync")
+    validate = subparsers.add_parser("validate")
+    validate.add_argument("--json", action="store_true", dest="as_json")
+    subparsers.add_parser("health")
+    fix = subparsers.add_parser("fix-links")
+    fix.add_argument("--approve", action="store_true")
+    fix.add_argument("--dry-run", action="store_true")
+    for name in ("activate", "archive"):
+        command = subparsers.add_parser(name)
+        command.add_argument("note")
+        command.add_argument("--approve", action="store_true")
+        command.add_argument("--dry-run", action="store_true")
+        if name == "archive":
+            command.add_argument("--force", action="store_true")
+    migrate = subparsers.add_parser("migrate")
+    migrate.add_argument("--apply", action="store_true")
+    migrate.add_argument("--dry-run", action="store_true")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = _parser()
+    args = parser.parse_args(argv)
+    command = args.command or "index"
+    try:
+        if command in {"index", "fast", "all", "sync"}:
+            code = run_mode(command)
+        elif command == "validate":
+            code = 0 if validate_vault(args.as_json)[0] else 1
+        elif command == "health":
+            valid, _ = validate_vault(False)
+            compile_index()
+            links = heal_links()
+            code = 0 if valid and not links else 1
+        elif command == "fix-links":
+            fix_links(args.approve, args.dry_run)
+            code = 0
+        elif command == "activate":
+            activate(args.note, args.approve, args.dry_run)
+            if not args.dry_run:
+                compile_index()
+            code = 0
+        elif command == "archive":
+            archive(args.note, args.approve, args.force, args.dry_run)
+            if not args.dry_run:
+                compile_index()
+            code = 0
+        elif command == "migrate":
+            migrate_archive(args.apply, args.dry_run)
+            code = 0
+        else:
+            code = run_mode(command)
+        write_status(command, code == 0, code, "completed" if code == 0 else "completed with reported issues")
+        return code
+    except (CommandError, FrontmatterError, OSError, UnicodeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        write_status(command, False, 1, str(exc))
+        return 1
+
+
 if __name__ == "__main__":
-    import sys
-
-    requested_mode = sys.argv[1] if len(sys.argv) > 1 else "index"
-    raise SystemExit(run_mode(requested_mode))
-
+    raise SystemExit(main())

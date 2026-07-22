@@ -24,15 +24,18 @@ superpowers/
 # Keep only dashboards tracked: Capture/Capture.md, Brain/Brain.md
 Capture/**
 !Capture/Capture.md
+Active/**
+!Active/Active.md
 Brain/**
 !Brain/Brain.md
+Archive/**
+!Archive/
+!Archive/.gitkeep
 
 # Runtime / derived / personal scratch
 IDEA.md
 System/index.json
-System/Archive/**
-!System/Archive/
-!System/Archive/.gitkeep
+System/status.json
 
 # ---------------------------------------------------------------------------
 # Obsidian

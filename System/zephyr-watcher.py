@@ -1,25 +1,32 @@
+#!/usr/bin/env python3
+"""Optional local watcher for deterministic Zephyr maintenance only."""
+
+from __future__ import annotations
+
 import os
+import subprocess
 import sys
 import time
-import subprocess
 from datetime import datetime
 
-# Setup directories relative to this script
 SYSTEM_DIR = os.path.dirname(os.path.abspath(__file__))
 VAULT_DIR = os.path.dirname(SYSTEM_DIR)
-CAPTURE_DIR = os.path.join(VAULT_DIR, "Capture")
-BRAIN_DIR = os.path.join(VAULT_DIR, "Brain")
+WATCH_DIRS = [os.path.join(VAULT_DIR, name) for name in ("Capture", "Active", "Brain", "Archive")]
 WORKER_PATH = os.path.join(SYSTEM_DIR, "zephyr-worker.py")
+DEBOUNCE_INTERVAL = 2.0
+POLL_INTERVAL = 2.0
 
-# Configurations
-DEBOUNCE_INTERVAL = 2.0  # seconds to wait after last change before triggering
-POLL_INTERVAL = 2.0      # seconds between polling checks (if in polling mode)
 
-def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] [Watcher] {msg}")
+def log(message: str) -> None:
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] [Watcher] {message}")
 
-def run_worker(mode="index"):
-    log(f"Triggering zephyr-worker.py {mode}...")
+
+def run_worker(mode: str = "index") -> bool:
+    """Run only the local index/report command and return its actual outcome."""
+    if mode != "index":
+        log(f"Ignoring unsupported watcher mode {mode!r}; watcher only runs index.")
+        mode = "index"
+    log("Triggering deterministic index and link report...")
     try:
         result = subprocess.run(
             [sys.executable, WORKER_PATH, mode],
@@ -27,79 +34,66 @@ def run_worker(mode="index"):
             text=True,
             encoding="utf-8",
         )
-        if result.stdout:
-            for line in result.stdout.splitlines():
-                if line.strip():
-                    print(f"  [Worker] {line}")
-        if result.stderr:
-            for line in result.stderr.splitlines():
-                if line.strip():
-                    print(f"  [Worker-Error] {line}")
+    except OSError as exc:
+        log(f"Worker could not start: {exc}")
+        return False
+    for stream, label in ((result.stdout, "Worker"), (result.stderr, "Worker-Error")):
+        for line in stream.splitlines():
+            if line.strip():
+                print(f"  [{label}] {line}")
+    if result.returncode == 0:
         log("Worker finished successfully.")
-    except Exception as e:
-        log(f"Error running worker: {e}")
+        return True
+    log(f"Worker failed with exit code {result.returncode}.")
+    return False
 
-# ==============================================================================
-# 1. Watchdog Event Handler Mode (If watchdog is installed)
-# ==============================================================================
+
+def get_md_files_state() -> dict[str, float]:
+    state: dict[str, float] = {}
+    for directory in WATCH_DIRS:
+        if not os.path.isdir(directory):
+            continue
+        for entry in os.scandir(directory):
+            if entry.is_file() and entry.name.endswith(".md") and entry.name != "Home.md":
+                try:
+                    state[entry.path] = entry.stat().st_mtime
+                except OSError:
+                    pass
+    return state
+
+
 try:
-    from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
+    from watchdog.observers import Observer
 
     class ZephyrHandler(FileSystemEventHandler):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.last_change_time = 0.0
             self.pending_change = False
-            self.trigger_mode = "index"
 
-        def on_any_event(self, event):
-            # Only monitor markdown file modifications/creations/deletions
-            if event.is_directory or not event.src_path.endswith(".md"):
+        def on_any_event(self, event) -> None:  # type: ignore[no-untyped-def]
+            if event.is_directory or not event.src_path.endswith(".md") or os.path.basename(event.src_path) == "Home.md":
                 return
-            if os.path.basename(event.src_path) == "Home.md":
-                return
-            
-            # Record change time
             self.last_change_time = time.time()
             self.pending_change = True
-            
-            fname = os.path.basename(event.src_path)
-            is_capture_md = (
-                event.src_path.replace("\\", "/").startswith(CAPTURE_DIR.replace("\\", "/"))
-                and not fname.endswith(" -- draft.md")
-                and event.event_type in {"created", "modified"}
-            )
-            
-            if is_capture_md:
-                self.trigger_mode = "triage"
-                log(f"Detected change (triage needed): {fname} ({event.event_type})")
-            else:
-                log(f"Detected change (index needed): {fname} ({event.event_type})")
+            log(f"Detected local Markdown change: {os.path.basename(event.src_path)} ({event.event_type})")
 
-    def run_watchdog():
-        log("Watchdog library detected. Starting event-driven file watcher...")
+    def run_watchdog() -> None:
+        log("Watchdog detected; monitoring content roots for local index updates.")
         handler = ZephyrHandler()
         observer = Observer()
-        
-        # Monitor Capture and Brain
-        if os.path.exists(CAPTURE_DIR):
-            observer.schedule(handler, path=CAPTURE_DIR, recursive=False)
-            log(f"Monitoring Capture directory: {CAPTURE_DIR}")
-        if os.path.exists(BRAIN_DIR):
-            observer.schedule(handler, path=BRAIN_DIR, recursive=False)
-            log(f"Monitoring Brain directory: {BRAIN_DIR}")
-            
+        for directory in WATCH_DIRS:
+            if os.path.isdir(directory):
+                observer.schedule(handler, path=directory, recursive=False)
+                log(f"Monitoring {directory}")
         observer.start()
         try:
             while True:
                 time.sleep(0.5)
-                # Debounce logic
-                if handler.pending_change and (time.time() - handler.last_change_time >= DEBOUNCE_INTERVAL):
+                if handler.pending_change and time.time() - handler.last_change_time >= DEBOUNCE_INTERVAL:
                     handler.pending_change = False
-                    mode = handler.trigger_mode
-                    handler.trigger_mode = "index"
-                    run_worker(mode)
+                    run_worker("index")
         except KeyboardInterrupt:
             observer.stop()
             log("Watcher stopped by user.")
@@ -109,91 +103,28 @@ try:
 except ImportError:
     HAS_WATCHDOG = False
 
-# ==============================================================================
-# 2. Polling Mode (Zero-dependency fallback)
-# ==============================================================================
-def get_md_files_state():
-    state = {}
-    for dpath in [CAPTURE_DIR, BRAIN_DIR]:
-        if not os.path.exists(dpath):
-            continue
-        for fname in os.listdir(dpath):
-            if not fname.endswith(".md") or fname == "Home.md":
-                continue
-            fpath = os.path.join(dpath, fname)
-            try:
-                state[fpath] = os.path.getmtime(fpath)
-            except Exception:
-                # File might be deleted/locked during scan
-                pass
-    return state
 
-def run_polling():
-    log("Watchdog library not installed. Starting fallback polling watcher...")
-    log(f"Monitoring directories: Capture/ & Brain/ (polling interval: {POLL_INTERVAL}s)")
-    
+def run_polling() -> None:
+    log("Watchdog is unavailable; using local polling for index updates.")
     last_state = get_md_files_state()
     last_change_time = 0.0
     pending_change = False
-    triage_needed = False
-    
     try:
         while True:
             time.sleep(POLL_INTERVAL)
             current_state = get_md_files_state()
-            
-            # Detect changes (added, modified, or deleted files)
-            changes = []
-            
-            # Check for modified or new files
-            for path, mtime in current_state.items():
-                fname = os.path.basename(path)
-                is_add_or_mod = False
-                if path not in last_state:
-                    changes.append(f"Added {fname}")
-                    is_add_or_mod = True
-                elif last_state[path] != mtime:
-                    changes.append(f"Modified {fname}")
-                    is_add_or_mod = True
-                
-                if is_add_or_mod:
-                    is_capture_md = (
-                        path.replace("\\", "/").startswith(CAPTURE_DIR.replace("\\", "/"))
-                        and not fname.endswith(" -- draft.md")
-                    )
-                    if is_capture_md:
-                        triage_needed = True
-                    
-            # Check for deleted files
-            for path in last_state:
-                if path not in current_state:
-                    changes.append(f"Deleted {os.path.basename(path)}")
-                    
-            if changes:
-                last_change_time = time.time()
+            if current_state != last_state:
                 last_state = current_state
-                if not pending_change:
-                    pending_change = True
-                    log(f"Detected changes: {', '.join(changes)}")
-                    
-            # Debounce logic
-            if pending_change and (time.time() - last_change_time >= DEBOUNCE_INTERVAL):
+                last_change_time = time.time()
+                pending_change = True
+                log("Detected local Markdown change.")
+            if pending_change and time.time() - last_change_time >= DEBOUNCE_INTERVAL:
                 pending_change = False
-                mode = "triage" if triage_needed else "index"
-                triage_needed = False
-                run_worker(mode)
-                
+                run_worker("index")
     except KeyboardInterrupt:
         log("Watcher stopped by user.")
 
-# ==============================================================================
-# Main Entry Point
-# ==============================================================================
+
 if __name__ == "__main__":
-    log("Starting Zephyr File Watcher...")
-    log(f"Vault Root: {VAULT_DIR}")
-    
-    if HAS_WATCHDOG:
-        run_watchdog()
-    else:
-        run_polling()
+    log("Starting Zephyr local-only watcher. It never invokes an agent or network API.")
+    run_watchdog() if HAS_WATCHDOG else run_polling()

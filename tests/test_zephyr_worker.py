@@ -69,5 +69,77 @@ class WorkerModeTests(unittest.TestCase):
         heal_links.assert_not_called()
 
 
+class LifecycleSafetyTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.vault = Path(self.temp_dir.name)
+        self.module = load_worker_module()
+        for name in ("Capture", "Active", "Brain", "Archive", "System"):
+            (self.vault / name).mkdir()
+        self.module.VAULT_DIR = self.vault
+        self.module.CAPTURE_DIR = self.vault / "Capture"
+        self.module.ACTIVE_DIR = self.vault / "Active"
+        self.module.BRAIN_DIR = self.vault / "Brain"
+        self.module.ARCHIVE_DIR = self.vault / "Archive"
+        self.module.SYSTEM_DIR = self.vault / "System"
+        self.module.INDEX_PATH = self.vault / "System" / "index.json"
+        self.module.STATUS_PATH = self.vault / "System" / "status.json"
+        self.module.CONTENT_DIRS = (
+            self.module.CAPTURE_DIR,
+            self.module.ACTIVE_DIR,
+            self.module.BRAIN_DIR,
+            self.module.ARCHIVE_DIR,
+        )
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def _write_project(self, folder, status="active"):
+        path = self.vault / folder / "Example.md"
+        path.write_text(
+            f"---\ntype: project\nstatus: {status}\npriority: medium\n"
+            "deadline: 2026-08-01\narea: '[[Work]]'\ntags: [project]\n---\n\nBody stays intact.\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_yaml_parser_preserves_nested_values_and_body(self):
+        frontmatter, body = self.module.parse_frontmatter(
+            "---\ntype: note\ntags: [one, two]\nmetadata:\n  quoted: 'yes: please'\n---\n\nBody\n"
+        )
+        self.assertEqual(frontmatter["metadata"]["quoted"], "yes: please")
+        self.assertEqual(frontmatter["tags"], ["one", "two"])
+        self.assertEqual(body, "Body\n")
+
+    def test_activation_requires_approval_and_dry_run_keeps_source(self):
+        source = self._write_project("Capture")
+        with self.assertRaises(self.module.CommandError):
+            self.module.activate(str(source), approve=False, dry_run=False)
+        self.module.activate(str(source), approve=True, dry_run=True)
+        self.assertTrue(source.exists())
+        self.assertFalse((self.vault / "Active" / "Example.md").exists())
+
+    def test_activation_and_completed_archive_are_explicit_and_body_safe(self):
+        source = self._write_project("Capture")
+        self.module.activate(str(source), approve=True, dry_run=False)
+        active = self.vault / "Active" / "Example.md"
+        self.assertTrue(active.exists())
+        self.assertFalse(source.exists())
+        self.assertIn("Body stays intact.", active.read_text(encoding="utf-8"))
+        with self.assertRaises(self.module.CommandError):
+            self.module.archive(str(active), approve=True, force=False, dry_run=False)
+        active.write_text(active.read_text(encoding="utf-8").replace("status: active", "status: completed"), encoding="utf-8")
+        self.module.archive(str(active), approve=True, force=False, dry_run=False)
+        self.assertTrue((self.vault / "Archive" / "Example.md").exists())
+
+    def test_invalid_project_is_not_moved(self):
+        source = self.vault / "Capture" / "Incomplete.md"
+        source.write_text("---\ntype: project\nstatus: active\n---\n\nKeep me.\n", encoding="utf-8")
+        with self.assertRaises(self.module.CommandError):
+            self.module.activate(str(source), approve=True, dry_run=False)
+        self.assertTrue(source.exists())
+        self.assertFalse((self.vault / "Active" / "Incomplete.md").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,7 @@ const navContainer = headerContainer.createEl("div", { cls: "nav-header" });
 const links = [
     { name: "Home", target: "Home" },
     { name: "Capture Inbox", target: "Capture" },
+    { name: "Active Projects", target: "Active" },
     { name: "Brain", target: "Brain" }
 ];
 for (let link of links) {
@@ -115,13 +116,7 @@ formContainer.querySelector("#ingest-submit").addEventListener("click", async ()
         return;
     }
     
-    const fileContent = `---
-type: note
-tags: [captured]
-created: ${new Date().toISOString().split('T')[0]}
----
-
-${contentVal}`;
+    const fileContent = contentVal;
     
     try {
         await app.vault.create(filePath, fileContent);
@@ -237,5 +232,5 @@ dv.container.addEventListener("click", (e) => {
 ```
 
 <div class="system-status-bar">
-    <span>Zephyr Second Brain V0.1.0</span> | <span>Background Worker Status: Active (Updated)</span>
+    <span>Zephyr Second Brain v0.2</span> | <span>Raw capture; review before commitment</span>
 </div>

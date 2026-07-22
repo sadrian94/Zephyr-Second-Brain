@@ -1,13 +1,11 @@
 ---
-type: project
-status: active
-priority: medium
-deadline: YYYY-MM-DD
-area: "[[Area Note]]"
-created: YYYY-MM-DD
-tags: [project]
+suggested_type: project
+suggested_destination: Active
+triage_status: proposed
 ---
-# Project Name
+# Project proposal — review before activation
+
+After approval, replace this proposal frontmatter with complete `type: project` YAML from `System/PROTOCOL.md`, then run `activate --approve`.
 
 ## Goals
 - [ ] Goal 1

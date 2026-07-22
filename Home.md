@@ -11,6 +11,7 @@ const navContainer = headerContainer.createEl("div", { cls: "nav-header" });
 const links = [
     { name: "Home", target: "Home" },
     { name: "Capture Inbox", target: "Capture" },
+    { name: "Active Projects", target: "Active" },
     { name: "Brain", target: "Brain" }
 ];
 for (let link of links) {
@@ -84,7 +85,7 @@ const svgIcons = {
 
 // 1. Stats calculation & rendering
 const totalInbox = dv.pages('"Capture"').filter(p => p.file.name !== 'Capture' && p.type !== 'log' && (!p.tags || !p.tags.includes('dashboard'))).length;
-const totalProjects = dv.pages('"Brain"').filter(p => p.type === 'project').length;
+const totalProjects = dv.pages('"Active"').filter(p => p.type === 'project').length;
 const totalNotes = dv.pages('"Brain"').filter(p => p.type === 'note' && p.file.name !== 'Brain' && (!p.tags || !p.tags.includes('dashboard'))).length;
 const totalLogs = dv.pages('"Capture"').filter(p => p.type === 'log').length;
 
@@ -114,7 +115,7 @@ const leftColumn = gridContainer.createEl("div");
 const rightColumn = gridContainer.createEl("div");
 
 // 3. Render Left Column: Active Projects
-const projects = dv.pages('"Brain"')
+const projects = dv.pages('"Active"')
     .filter(p => p.type === 'project' && p.status === 'active')
     .sort(p => p.deadline || '9999-12-31', 'asc');
 
@@ -235,5 +236,5 @@ dv.container.addEventListener("click", (e) => {
 ```
 
 <div class="system-status-bar">
-    <span>Zephyr Second Brain V0.1.0</span> | <span>Background Worker Status: Active</span>
+    <span>Zephyr Second Brain v0.2</span> | <span>Local index and validation</span>
 </div>

@@ -26,13 +26,7 @@ def load_or_create_config(vault_dir):
         "preferred_language": "English",
         "timezone": "US/Central",
         "primary_agent_name": "<PRIMARY_AGENT_NAME>",
-        "secondary_agent_name": "<SECONDARY_AGENT_NAME>",
-        "discord_webhook_url": "<DISCORD_WEBHOOK_URL>",
-        "hermes_provider": "",
-        "hermes_model": "",
-        "ai_base_url": "https://api.openai.com/v1",
-        "ai_api_key": "<AI_API_KEY>",
-        "ai_model": "gpt-4o-mini"
+        "secondary_agent_name": "<SECONDARY_AGENT_NAME>"
     }
 
     # Try loading existing vault config
@@ -98,31 +92,7 @@ def prompt_config(current_cfg):
     new_cfg["primary_agent_name"] = prompt_config_value("Enter primary agent name", current_cfg.get("primary_agent_name", "<PRIMARY_AGENT_NAME>"))
     new_cfg["secondary_agent_name"] = prompt_config_value("Enter secondary agent name", current_cfg.get("secondary_agent_name", "<SECONDARY_AGENT_NAME>"))
 
-    print("  [Hint] To get a Discord Webhook: Server Settings -> Integrations -> Webhooks -> New Webhook")
-    new_cfg["discord_webhook_url"] = prompt_config_value("Enter Discord Webhook URL", current_cfg.get("discord_webhook_url", "<DISCORD_WEBHOOK_URL>"))
-
-    print("\n--- Inbox Triage Configuration ---")
-    print("Choose triage method:")
-    print("  1. Hermes CLI (uses local hermes commands, zero-config API keys)")
-    print("  2. Direct LLM API (uses standard API url, key, and model)")
-    triage_choice = prompt_config_value("Select method (1 or 2)", "1")
-    
-    if triage_choice == "1":
-        print("\nConfiguring Hermes CLI Triage:")
-        new_cfg["hermes_provider"] = prompt_config_value("  Enter Hermes provider (e.g. openrouter, anthropic) [optional]", current_cfg.get("hermes_provider", ""))
-        new_cfg["hermes_model"] = prompt_config_value("  Enter Hermes model (e.g. google/gemini-flash-1.5) [optional]", current_cfg.get("hermes_model", ""))
-        new_cfg["ai_base_url"] = current_cfg.get("ai_base_url", "https://api.openai.com/v1")
-        new_cfg["ai_api_key"] = current_cfg.get("ai_api_key", "<AI_API_KEY>")
-        new_cfg["ai_model"] = current_cfg.get("ai_model", "gpt-4o-mini")
-    else:
-        print("\nConfiguring Direct LLM API:")
-        new_cfg["ai_base_url"] = prompt_config_value("  Enter API Base URL", current_cfg.get("ai_base_url", "https://api.openai.com/v1"))
-        new_cfg["ai_api_key"] = prompt_config_value("  Enter API Key", current_cfg.get("ai_api_key", "<AI_API_KEY>"))
-        new_cfg["ai_model"] = prompt_config_value("  Enter AI Model", current_cfg.get("ai_model", "gpt-4o-mini"))
-        new_cfg["hermes_provider"] = current_cfg.get("hermes_provider", "")
-        new_cfg["hermes_model"] = current_cfg.get("hermes_model", "")
-
-    print("\nConfiguration compiled successfully!\n")
+    print("\nConfiguration compiled successfully. Zephyr core does not store or use API credentials.\n")
     return new_cfg
 
 def enable_obsidian_plugins(vault_dir):
@@ -176,8 +146,10 @@ UPDATE_FILES = {
     "run-watcher.bat",
     "Home.md",
     "Capture/Capture.md",
+    "Active/Active.md",
     "Brain/Brain.md",
     "System/DESIGN.md",
+    "System/PROTOCOL.md",
     "System/rules.md",
     "System/zephyr-dashboard.css",
     "System/zephyr-watcher.py",
@@ -204,22 +176,7 @@ def update_vault(vault_dir):
     if not os.path.isfile(config_path):
         raise SystemExit("[Init] --update requires an initialized vault with System/config.json. Run init-zephyr.py first.")
 
-    git_dir = os.path.join(WORKSPACE_DIR, ".git")
-    if os.path.exists(git_dir):
-        log("Checking for latest template updates from git remote...")
-        try:
-            rem_check = subprocess.run(["git", "-C", WORKSPACE_DIR, "remote"], capture_output=True, text=True, encoding="utf-8")
-            if rem_check.returncode == 0 and rem_check.stdout.strip():
-                pull_res = subprocess.run(["git", "-C", WORKSPACE_DIR, "pull"], capture_output=True, text=True, encoding="utf-8")
-                if pull_res.returncode == 0:
-                    log("Successfully pulled the latest updates from git remote.")
-                else:
-                    log(f"Warning: Could not automatically pull remote changes: {pull_res.stderr.strip()}")
-                    log("Proceeding with the update using current local files...")
-            else:
-                log("No git remote configured in workspace. Updating from current local files...")
-        except Exception as e:
-            log(f"Warning: Failed to check for git updates: {e}")
+    log("Updating from the current local template. Pull template changes explicitly before running --update.")
 
     config = load_or_create_config(vault_dir)
     update_paths = set(UPDATE_FILES)
@@ -253,6 +210,8 @@ def update_vault(vault_dir):
         if result.returncode != 0:
             raise SystemExit("[Init] --update copied assets but failed to rebuild System/index.json.")
 
+    for root in ("Capture", "Active", "Brain", "Archive", "System"):
+        ensure_dir(os.path.join(vault_dir, root))
     log("Zephyr system update complete. Personal notes and System/config.json were not overwritten.")
 
 
@@ -267,7 +226,7 @@ def main():
         update_vault(vault_dir)
         return
 
-    log("Zephyr Second Brain (0.1.0) Initialization & Configuration Wizard")
+    log("Zephyr Second Brain (0.2.0) Initialization & Configuration Wizard")
     if here_mode:
         log(f"In-place mode (--here): vault dir = {vault_dir}")
     else:
@@ -276,9 +235,10 @@ def main():
     # Create basic directory structure
     ensure_dir(vault_dir)
     ensure_dir(os.path.join(vault_dir, "Capture"))
+    ensure_dir(os.path.join(vault_dir, "Active"))
     ensure_dir(os.path.join(vault_dir, "Brain"))
+    ensure_dir(os.path.join(vault_dir, "Archive"))
     ensure_dir(os.path.join(vault_dir, "System"))
-    ensure_dir(os.path.join(vault_dir, "System", "Archive"))
     ensure_dir(os.path.join(vault_dir, "System", "templates"))
     ensure_dir(os.path.join(vault_dir, "System", "skills"))
     ensure_dir(os.path.join(vault_dir, ".obsidian", "snippets"))
@@ -395,7 +355,7 @@ def main():
     log("Zephyr Second Brain initialization complete!")
     log("Setup paths & folders verified.")
     log(f"Obsidian Vault: {vault_dir}")
-    log("Next: enable DataviewJS, then run ./run-watcher.sh (or python3 System/zephyr-worker.py index)")
+    log("Next: enable DataviewJS, then run python3 System/zephyr-worker.py validate and index.")
 
 if __name__ == "__main__":
     main()

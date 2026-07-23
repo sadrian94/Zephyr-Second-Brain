@@ -1,4 +1,4 @@
-# Project Management in v0.2
+# Project Management in v0.2.1
 
 `Active/` contains only projects the user deliberately chose to advance. Create or propose work in `Capture/`; a proposal is not an active project.
 

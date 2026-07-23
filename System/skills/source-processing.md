@@ -1,7 +1,6 @@
 ---
 type: skill
 frequency: on-trigger
-requires_hermes: false
 tags: [agent, procedure, ingestion]
 ---
 # Source Processing Procedure

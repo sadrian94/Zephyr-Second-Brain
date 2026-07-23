@@ -1,4 +1,4 @@
-# Zephyr Protocol v0.2
+# Zephyr Protocol v0.2.1
 
 This is the canonical, agent-neutral operating contract for a Zephyr vault. Agent-specific files are adapters; they must link here rather than duplicate or override these rules.
 
@@ -24,6 +24,14 @@ Active project (completed or stopped) → human approves → archive command app
 ```
 
 An agent’s `suggested_type: project`, title, tag, or destination is a proposal, not permission to create an active commitment. It must not set a deadline, priority, project status, move a note to `Active/`, archive a note, delete a note, or rewrite human prose without explicit human approval.
+
+## Agent coordination
+
+Zephyr does not define permanent primary or secondary agents. For each task or session, one agent may act as the active operator. Other agents may participate as read-only reviewers or bounded specialists.
+
+**One writer at a time; multiple readers allowed.** The active operator may search the vault, prepare proposals, run deterministic read-only commands, and apply an explicitly approved command. A reviewer inspects proposals or results without mutating the vault. A specialist performs bounded work such as research, migration review, documentation review, or code implementation; the role grants no permanent authority.
+
+Agents must refresh `System/index.json` before making vault-state claims and after approved lifecycle changes. The human remains the sole approval authority for activation, archiving, deletion, prose changes, and project metadata changes.
 
 ## Frontmatter
 

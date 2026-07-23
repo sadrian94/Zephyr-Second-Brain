@@ -1,8 +1,8 @@
 # Zephyr Second Brain
 
-Zephyr is a local-first, Markdown-based second-brain protocol for Obsidian. Version 0.2 is manual-first: agents can prepare proposals, while a human explicitly approves commitments and a deterministic local worker applies them.
+Zephyr is a local-first, Markdown-based second-brain protocol for Obsidian. Version 0.2.1 is manual-first: agents can prepare proposals, while a human explicitly approves commitments and a deterministic local worker applies them.
 
-Read the [protocol](System/PROTOCOL.md), [capability matrix](docs/capabilities.md), and [v0.1 → v0.2 migration guide](docs/migration-v0.2.md) before moving an existing vault.
+Read the [protocol](System/PROTOCOL.md), [capability matrix](docs/capabilities.md), [v0.2.1 release notes](docs/release-notes-v0.2.1.md), and the [v0.2.1 update guide](docs/migration-v0.2.1.md) before updating an existing vault.
 
 ## What it does
 
@@ -12,6 +12,8 @@ Read the [protocol](System/PROTOCOL.md), [capability matrix](docs/capabilities.m
 - Provides an optional local watcher that runs validation/index reporting after a debounce.
 
 Zephyr does not invoke an agent from the watcher, call an LLM API, retain API credentials, automatically activate projects, automatically archive projects, or automatically rewrite note prose.
+
+Zephyr is agent-neutral: one agent operates at a time, and optional reviewers or specialists remain bounded and read-only by default. It does not assign permanent agent rank or require more than one agent.
 
 ## Quick start
 

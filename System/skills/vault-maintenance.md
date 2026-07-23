@@ -1,7 +1,6 @@
 ---
 type: skill
 frequency: weekly
-requires_hermes: false
 tags: [agent, procedure, maintenance]
 ---
 # Vault Maintenance Procedure

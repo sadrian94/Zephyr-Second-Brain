@@ -1,13 +1,11 @@
 ---
 type: skill
-agent: all
 frequency: on-trigger
-requires_hermes: true
 tags: [agent, skill, ingestion]
 ---
 # Skill: Idea Expansion & Deep Ingestion
 
-This skill defines how agents process and expand raw bullet points or ideas into structured knowledge components.
+This user-invoked procedure defines how an agent may prepare an expansion proposal from raw bullet points or ideas. It has no provider-specific dependency.
 
 ## Objectives
 - Relieve the user of formatting and structuring overhead.
@@ -24,15 +22,15 @@ This skill defines how agents process and expand raw bullet points or ideas into
         *   Formulate a clean, NTFS-safe title.
         *   Flesh out 3-5 initial goals and break them down into actionable steps.
         *   Provide background context based on the raw note content.
-        *   Populate the `System/templates/project.md` structure.
+        *   Prepare the proposed metadata and outline using `System/templates/project.md` as a reference.
     *   **If a Note**:
         *   Refine the title.
         *   Organize the content into clear, logical headers.
         *   Extract key tags and identify relevant connections.
-        *   Populate the `System/templates/note.md` structure.
+        *   Prepare the proposed metadata and outline using `System/templates/note.md` as a reference.
 3.  **Draft Proposition**:
-    *   Write the expanded note into `Capture/` with the filename suffix `-- draft.md` (e.g. `Gmail Smart Router -- draft.md`).
+    *   Present the expanded note, suggested filename (for example `Gmail Smart Router -- draft.md`), and proposed destination for human review.
     *   Do not modify the user's original raw note.
     *   Alert the user: *"I noticed your idea about X and drafted a structured project node at [[Gmail Smart Router -- draft]]. Let me know if you would like me to finalize it!"*
 4.  **Finalization**:
-    *   Upon user approval, remove the `-- draft` suffix, update its frontmatter metadata, and move it to `Brain/`.
+    *   Treat any prose or metadata edit, rename, or move as a separate explicit approval. Follow `System/PROTOCOL.md` and use the deterministic worker where applicable.

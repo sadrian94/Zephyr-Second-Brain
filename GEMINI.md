@@ -1,4 +1,4 @@
-# Zephyr Secondary-Agent Adapter
+# Zephyr Gemini Adapter
 
 This is a thin adapter. The authoritative rules are in [System/PROTOCOL.md](System/PROTOCOL.md).
 
@@ -7,5 +7,6 @@ This is a thin adapter. The authoritative rules are in [System/PROTOCOL.md](Syst
 3. You may prepare triage, tags, links, titles, or drafts. Mark an inferred project with proposal fields such as `suggested_type: project`, `suggested_destination: Active`, and `triage_status: proposed`.
 4. Do not activate, archive, delete, rewrite human prose, set project status/priority/deadline, invoke a network API, or run a watcher-triggered action without the user’s explicit approval.
 5. When a move is approved, use the worker’s `activate` or `archive` command with `--approve`; prefer `--dry-run` first.
+6. Zephyr has no permanent agent hierarchy. Only one agent may mutate the vault during a task or session; reviewers and specialists are read-only unless the human explicitly authorizes an approved command.
 
 Personal configuration is optional and must not contain API credentials for Zephyr core. Never commit personal notes from a private vault to the public template.

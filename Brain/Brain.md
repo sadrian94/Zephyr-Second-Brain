@@ -216,5 +216,5 @@ dv.container.addEventListener("click", (e) => {
 ```
 
 <div class="system-status-bar">
-    <span>Zephyr Second Brain v0.2</span> | <span>Durable knowledge</span>
+    <span>Zephyr Second Brain v0.2.1</span> | <span>Durable knowledge</span>
 </div>

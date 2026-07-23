@@ -1,7 +1,6 @@
 ---
 type: skill
 frequency: scheduled
-requires_hermes: false
 tags: [agent, procedure, reminders]
 ---
 # Lifestyle Reminder Procedure

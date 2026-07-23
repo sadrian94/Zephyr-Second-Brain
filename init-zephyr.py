@@ -24,9 +24,7 @@ def load_or_create_config(vault_dir):
     default_config = {
         "user_name": "<USER_NAME>",
         "preferred_language": "English",
-        "timezone": "US/Central",
-        "primary_agent_name": "<PRIMARY_AGENT_NAME>",
-        "secondary_agent_name": "<SECONDARY_AGENT_NAME>"
+        "timezone": "US/Central"
     }
 
     # Try loading existing vault config
@@ -88,9 +86,6 @@ def prompt_config(current_cfg):
 
     print("  [Hint] Timezone should be an IANA database name, e.g., 'Asia/Taipei' or 'America/New_York'")
     new_cfg["timezone"] = prompt_config_value("Enter your timezone", current_cfg.get("timezone", "US/Central"))
-
-    new_cfg["primary_agent_name"] = prompt_config_value("Enter primary agent name", current_cfg.get("primary_agent_name", "<PRIMARY_AGENT_NAME>"))
-    new_cfg["secondary_agent_name"] = prompt_config_value("Enter secondary agent name", current_cfg.get("secondary_agent_name", "<SECONDARY_AGENT_NAME>"))
 
     print("\nConfiguration compiled successfully. Zephyr core does not store or use API credentials.\n")
     return new_cfg
@@ -154,6 +149,9 @@ UPDATE_FILES = {
     "System/zephyr-dashboard.css",
     "System/zephyr-watcher.py",
     "System/zephyr-worker.py",
+    "AGENTS.md",
+    "GEMINI.md",
+    "CLAUDE.md",
 }
 UPDATE_DIRECTORIES = ("System/skills", "System/templates", ".agents/skills/zephyr-second-brain")
 TEXT_FILE_EXTENSIONS = (".md", ".json", ".py", ".css", ".sh", ".bat", ".txt")
@@ -239,7 +237,7 @@ def main():
         update_vault(vault_dir)
         return
 
-    log("Zephyr Second Brain (0.2.0) Initialization & Configuration Wizard")
+    log("Zephyr Second Brain (0.2.1) Initialization & Configuration Wizard")
     if here_mode:
         log(f"In-place mode (--here): vault dir = {vault_dir}")
     else:

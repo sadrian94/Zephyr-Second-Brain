@@ -1,4 +1,4 @@
-# Zephyr v0.2 Capability Matrix
+# Zephyr v0.2.1 Capability Matrix
 
 | Capability | Status | Boundary |
 | --- | --- | --- |
@@ -6,6 +6,7 @@
 | Approved activation and archiving | **Implemented** | Requires `--approve`; supports `--dry-run`. |
 | Link reporting and explicit case-only repairs | **Implemented** | Indexing does not edit links. |
 | Local watcher | **Implemented** | Debounce + index/report only; no agent or network calls. |
+| Agent coordination | **Implemented** | One active writer per task/session; optional reviewers and specialists are read-only by default. |
 | Capture triage, idea expansion, Dream Mode, Slow Mode | **Agent procedure** | An agent may prepare proposals under the protocol; no scheduler or core automation runs them. |
 | Bulk guided migration, more schemas, weekly review drafts | **Planned** | Not promised as current behavior. |
 

@@ -22,4 +22,8 @@ Agents may search the vault and prepare proposals for triage, tags, names, links
 
 Do not move a note to `Active/`, archive a project, delete content, rewrite human prose, or set status, priority, or deadlines without the user’s explicit approval. When approval is given, use the deterministic worker commands from the protocol; prefer `--dry-run` before applying a move.
 
+## Agent coordination
+
+Zephyr has no permanent primary or secondary agent. During a task or session, only one agent may mutate the vault. Reviewers and specialists are read-only by default; they may inspect proposals, identify risks, and recommend revisions, but cannot apply vault changes unless the human explicitly approves the action.
+
 The watcher is local-only and may not invoke an agent. Zephyr core has no direct LLM API, credential setting, or cloud fallback. Never commit personal vault material to the public template repository or rewrite Git history.

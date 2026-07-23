@@ -56,6 +56,11 @@ class UpdateModeTests(unittest.TestCase):
                 (vault / ".agents" / "skills" / "zephyr-second-brain" / "SKILL.md").read_text(encoding="utf-8"),
                 (REPO_ROOT / ".agents" / "skills" / "zephyr-second-brain" / "SKILL.md").read_text(encoding="utf-8"),
             )
+            for filename in ("AGENTS.md", "GEMINI.md", "CLAUDE.md"):
+                self.assertEqual(
+                    (vault / filename).read_text(encoding="utf-8"),
+                    (REPO_ROOT / filename).read_text(encoding="utf-8"),
+                )
 
     def test_update_requires_an_initialized_vault(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -83,6 +88,8 @@ class ConfigSchemaTests(unittest.TestCase):
         self.assertNotIn("ai_base_url", config)
         self.assertNotIn("ai_api_key", config)
         self.assertNotIn("ai_model", config)
+        self.assertNotIn("primary_agent_name", config)
+        self.assertNotIn("secondary_agent_name", config)
 
     def test_interactive_setup_preserves_legacy_config_values(self):
         module = load_init_module()
@@ -96,11 +103,27 @@ class ConfigSchemaTests(unittest.TestCase):
             "ai_api_key": "legacy-value",
         }
 
-        with patch.object(module.sys, "stdin") as stdin, patch("builtins.input", side_effect=[""] * 6):
+        with patch.object(module.sys, "stdin") as stdin, patch("builtins.input", side_effect=[""] * 3):
             stdin.isatty.return_value = True
             config = module.prompt_config(current_config)
 
         self.assertEqual(config["ai_api_key"], "legacy-value")
+        self.assertEqual(config["primary_agent_name"], "Hermes")
+        self.assertEqual(config["secondary_agent_name"], "Helper")
+
+
+class AgentAdapterTests(unittest.TestCase):
+    def test_adapters_link_to_protocol_and_define_one_writer_rule(self):
+        for filename in ("AGENTS.md", "GEMINI.md", "CLAUDE.md"):
+            content = (REPO_ROOT / filename).read_text(encoding="utf-8")
+            self.assertIn("System/PROTOCOL.md", content)
+            self.assertIn("one agent may mutate", content.lower())
+
+    def test_adapters_do_not_declare_primary_or_secondary_roles(self):
+        for filename in ("AGENTS.md", "GEMINI.md", "CLAUDE.md"):
+            content = (REPO_ROOT / filename).read_text(encoding="utf-8").lower()
+            self.assertNotIn("primary-agent", content)
+            self.assertNotIn("secondary-agent", content)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,5 @@
 {
     "user_name": "<YOUR_NAME>",
     "preferred_language": "English",
-    "timezone": "UTC",
-    "primary_agent_name": "<PRIMARY_AGENT_NAME>",
-    "secondary_agent_name": "<SECONDARY_AGENT_NAME>"
+    "timezone": "UTC"
 }

@@ -1,4 +1,4 @@
-# Zephyr v0.2.1 架構
+# Zephyr v0.2.2 架構
 
 Zephyr 的真實資料來源是本機的平面 Markdown 檔案。Python worker 只執行可重現的工作：解析 YAML、驗證 schema、建立索引、回報連結問題，以及執行經批准的移動。
 

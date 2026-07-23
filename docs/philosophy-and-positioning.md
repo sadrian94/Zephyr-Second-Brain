@@ -1,4 +1,4 @@
-# Zephyr v0.2.1: Manual-First, Local-First
+# Zephyr v0.2.2: Manual-First, Local-First
 
 Capture should be easy; commitments should be visible. Zephyr separates the two.
 

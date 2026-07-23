@@ -237,7 +237,7 @@ def main():
         update_vault(vault_dir)
         return
 
-    log("Zephyr Second Brain (0.2.1) Initialization & Configuration Wizard")
+    log("Zephyr Second Brain (0.2.2) Initialization & Configuration Wizard")
     if here_mode:
         log(f"In-place mode (--here): vault dir = {vault_dir}")
     else:

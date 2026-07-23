@@ -1,4 +1,4 @@
-# Zephyr v0.2.1 Capability Matrix
+# Zephyr v0.2.2 Capability Matrix
 
 | Capability | Status | Boundary |
 | --- | --- | --- |

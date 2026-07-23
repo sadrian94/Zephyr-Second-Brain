@@ -1,8 +1,8 @@
 # Zephyr 第二大腦
 
-Zephyr 是給 Obsidian 使用的本機優先 Markdown 第二大腦協定。v0.2.1 採取「人工優先」：代理可以提出建議，但只有使用者明確批准後，本機且可稽核的工具才會套用變更。
+Zephyr 是給 Obsidian 使用的本機優先 Markdown 第二大腦協定。v0.2.2 採取「人工優先」：代理可以提出建議，但只有使用者明確批准後，本機且可稽核的工具才會套用變更。
 
-完整規則請見 [System/PROTOCOL.md](System/PROTOCOL.md)、[功能狀態表](docs/capabilities.md)、[v0.2.1 版本說明](docs/release-notes-v0.2.1.md) 與 [v0.2.1 更新指南](docs/migration-v0.2.1.md)。
+完整規則請見 [System/PROTOCOL.md](System/PROTOCOL.md)、[功能狀態表](docs/capabilities.md)、[v0.2.2 版本說明](docs/release-notes-v0.2.2.md) 與 [v0.2.1 更新指南](docs/migration-v0.2.1.md)。
 
 ## 核心原則
 

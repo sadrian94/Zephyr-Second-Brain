@@ -1,4 +1,4 @@
-# Zephyr Protocol v0.2.1
+# Zephyr Protocol v0.2.2
 
 This is the canonical, agent-neutral operating contract for a Zephyr vault. Agent-specific files are adapters; they must link here rather than duplicate or override these rules.
 

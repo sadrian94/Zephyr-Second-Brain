@@ -1,4 +1,4 @@
-# Zephyr v0.2.1 Architecture
+# Zephyr v0.2.2 Architecture
 
 Zephyr’s data source of truth is a flat set of local Markdown files. The Python worker is deterministic: it parses YAML, validates schemas, generates the index, reports link issues, and performs only explicitly approved moves.
 

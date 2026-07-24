@@ -8,12 +8,12 @@
 
 ## Capture and distillation
 
-- Standardized all seven bundled skills with stable IDs, triggers, automation levels, scheduling safety, and allowed write locations.
-- Added queue-driven triage, idea expansion, and source distillation contracts. Opted-in agents may create only separate collision-safe drafts in `Capture/` and must preserve source material.
+- Consolidated the bundled procedures to four stable roles: maintenance, capture triage, source distillation, and review.
+- Added queue-driven capture triage and source distillation contracts. A direct request may create one separate collision-safe draft in `Capture/`; scheduled agents require opt-in and must preserve source material.
 - Added `promote --approve` so reviewed durable notes and distillations have a deterministic path from `Capture/` to `Brain/`.
 
 ## Review and governance
 
 - Review queue signals include invalid notes, raw captures, daily-log ideas, overdue and near-term projects, paused projects, and link issues.
-- Dream Mode, weekly review, reminders, and maintenance can be scheduled only as observe-level reports.
+- Review and maintenance can be scheduled only as observe-level reports.
 - Activation, promotion, archiving, link repair, prose edits, deletion, status, priority, and deadline changes remain human-gated.

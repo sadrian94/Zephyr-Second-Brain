@@ -20,9 +20,11 @@ Use concise English by default. Be reserved but engaged: correct unsafe assumpti
 
 Agents may search the vault and prepare proposals for triage, tags, names, links, drafts, or review summaries. A proposed project should use `suggested_type: project`, `suggested_destination: Active`, and `triage_status: proposed`.
 
+A direct request such as “capture this,” “triage this note,” “expand this idea,” or “distill this clipping” authorizes one new collision-safe raw note or companion draft in `Capture/`. Preserve the named source and explain the proposal; do not treat this as standing authority for later notes.
+
 Do not move a note to `Active/`, archive a project, delete content, rewrite human prose, or set status, priority, or deadlines without the user’s explicit approval. When approval is given, use the deterministic worker commands from the protocol; prefer `--dry-run` before applying a move.
 
-Observe automation may update generated files under `System/`. Draft automation must be explicitly enabled and may create only a new collision-safe `-- draft.md` proposal in `Capture/`; it must preserve the source. `activate`, `promote`, `archive`, and prose changes always require current human approval.
+Observe automation may update generated files under `System/`. Scheduled draft automation must be explicitly enabled and may create only a new collision-safe `-- draft.md` proposal in `Capture/`; it must preserve the source. `activate`, `promote`, `archive`, and prose changes always require current human approval.
 
 ## Agent coordination
 

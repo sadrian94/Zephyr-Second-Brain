@@ -634,7 +634,7 @@ def migrate_archive(apply: bool, dry_run: bool) -> int:
 
 
 def sync_git() -> int:
-    print("Git sync is intentionally not automated by Zephyr v0.3.0. Use your normal, reviewed Git workflow.")
+    print("Git sync is intentionally not automated by Zephyr v0.3.1. Use your normal, reviewed Git workflow.")
     return 0
 
 

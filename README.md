@@ -1,12 +1,13 @@
 # Zephyr Second Brain
 
-Zephyr is a local-first, Markdown-based second-brain protocol for Obsidian. Version 0.3.0 combines safe local automation with explicit human authority over commitments and prose.
+Zephyr is a local-first, Markdown-based second brain for Obsidian. Its primary interface is a conversation with an AI agent; deterministic CLI commands are the auditable transaction layer behind consequential changes.
 
-Start with the [usage guide](docs/usage-guide.md). The detailed rules are in the [protocol](System/PROTOCOL.md) and [automation model](System/AUTOMATION.md); see also the [capability matrix](docs/capabilities.md), [v0.3.0 release notes](docs/release-notes-v0.3.0.md), and [update guide](docs/migration-v0.3.md).
+Start with the [usage guide](docs/usage-guide.md). The detailed rules are in the [protocol](System/PROTOCOL.md) and [automation model](System/AUTOMATION.md); see also the [capability matrix](docs/capabilities.md), [v0.3.1 release notes](docs/release-notes-v0.3.1.md), and [update guide](docs/migration-v0.3.md).
 
 ## What it does
 
 - Uses five roots: `Capture/`, `Active/`, `Brain/`, `Archive/`, and `System/`.
+- Lets you tell an agent to capture, triage, expand, distill, review, or approve a named item in natural language.
 - Validates standard YAML frontmatter and builds `System/index.json` locally.
 - Builds `System/review-queue.json` from raw captures, dated ideas, project deadlines, validation findings, and link issues.
 - Moves a reviewed project only through explicit, collision-safe `activate` and `archive` commands.
@@ -36,26 +37,26 @@ python3 System/zephyr-worker.py validate
 
 Dataview and the supplied CSS snippet remain optional presentation tools; they are not the source of truth.
 
-## Everyday flow
+## Agent-first everyday flow
 
-1. Write freely in `Capture/`.
-2. Run `refresh` manually or start the optional watcher. Review `System/review-queue.json`.
-3. Ask an agent to triage, expand, or distill selected queue items. Draft automation may create separate `-- draft.md` proposals in `Capture/` only after explicit opt-in.
-4. Review a proposed project. Complete the project YAML (status, priority, deadline, area), then preview and apply its move:
+1. Tell the agent what you want: “Capture this idea,” “distill this clipping,” “show me this week’s review,” or “what needs my decision?”
+2. The agent may create the requested raw Capture or a separate draft, then refresh the queue. It preserves the source and labels its inference.
+3. When a proposal is right, tell the agent explicitly: “I approve this as a project” or “Promote this note to Brain.” The agent validates, previews, and runs the deterministic command for you.
+4. You may also run the same commands yourself. For a project, the transaction is:
 
    ```bash
    python3 System/zephyr-worker.py activate "Capture/Project.md" --approve --dry-run
    python3 System/zephyr-worker.py activate "Capture/Project.md" --approve
    ```
 
-5. For an approved durable or distilled note, convert its proposal frontmatter to valid `type: note` YAML, then preview and apply:
+5. For an approved durable or distilled note, the transaction is:
 
    ```bash
    python3 System/zephyr-worker.py promote "Capture/Distilled Note.md" --approve --dry-run
    python3 System/zephyr-worker.py promote "Capture/Distilled Note.md" --approve
    ```
 
-6. When a project is completed or stopped, update its status and archive it explicitly:
+6. When a project is completed or stopped, the transaction is:
 
    ```bash
    python3 System/zephyr-worker.py archive "Active/Project.md" --approve --dry-run
@@ -63,6 +64,8 @@ Dataview and the supplied CSS snippet remain optional presentation tools; they a
    ```
 
 7. Use `health` for a strict diagnostic result. `fix-links --approve --dry-run` previews only case-safe wikilink repairs.
+
+Direct conversation authorizes only the specific Capture or companion draft you requested. It never grants standing approval for activation, promotion, archiving, deletion, prose changes, or project metadata.
 
 ## Privacy and boundaries
 

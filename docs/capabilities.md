@@ -1,4 +1,4 @@
-# Zephyr v0.3.0 Capability Matrix
+# Zephyr v0.3.1 Capability Matrix
 
 | Capability | Status | Boundary |
 | --- | --- | --- |
@@ -7,10 +7,10 @@
 | Link reporting and explicit case-only repairs | **Implemented** | Indexing does not edit links. |
 | Local refresh automation | **Implemented** | Validate + index + link report + review queue; System writes only. |
 | Review queue | **Implemented** | Deterministic attention signals; never authorizes a note change. |
-| Capture triage, idea expansion, source distillation | **Opt-in draft** | External agent may create a separate Capture draft; source remains untouched. |
+| Capture triage and source distillation | **Direct or opt-in draft** | Direct request may create one separate Capture draft; scheduled agents require opt-in. |
 | Durable-note promotion | **Implemented** | Requires `promote --approve`; supports `--dry-run`. |
 | Agent coordination | **Implemented** | One active writer per task/session; optional reviewers and specialists are read-only by default. |
-| Dream Mode, weekly review, reminder brief | **Schedulable observe** | Generated report only; no note or external-service mutation. |
+| Review | **Schedulable observe** | One evidence-backed review brief; no note or external-service mutation. |
 | External delivery and agent scheduling | **User integration** | Disabled by default and configured outside Zephyr core. |
 
 ## Privacy

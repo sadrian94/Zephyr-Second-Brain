@@ -1,4 +1,4 @@
-# Zephyr v0.3.0: Agency-Preserving Automation
+# Zephyr v0.3.1: Agency-Preserving Automation
 
 Capture should be easy; commitments should be visible. Zephyr separates the two.
 

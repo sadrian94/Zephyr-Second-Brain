@@ -1,19 +1,41 @@
 # Zephyr Usage Guide
 
-Zephyr keeps capture easy and commitments visible. Start with raw material; only approve a project, durable note, or archive move when you mean it.
+Zephyr keeps capture easy and commitments visible. Talk to an AI agent for ordinary work; the CLI is the auditable transaction layer that the agent or you use after an explicit decision.
+
+## Agent-first operating model
+
+You can say:
+
+```text
+Capture this idea: I want to compare local language models for private research.
+```
+
+```text
+Distill Capture/Article clipping.md. Preserve the source and show me a draft.
+```
+
+```text
+What in Zephyr needs my decision this week?
+```
+
+```text
+I approve the Local model research proposal as a project. Preview the move, then apply it.
+```
+
+A direct request authorizes one new raw Capture or companion draft only. The agent may refresh generated state and explain its proposal, but it cannot turn that draft into an active project, a Brain note, an archive record, or a prose rewrite without a new explicit approval.
 
 ## The daily loop
 
-1. Capture an idea, clipping, or log in `Capture/`. Raw captures may have no frontmatter.
-2. Run the safe refresh command:
+1. Ask the agent to capture an idea, clipping, or log in `Capture/`. Raw captures may have no frontmatter.
+2. The agent runs the safe refresh command:
 
    ```bash
    python3 System/zephyr-worker.py refresh
    ```
 
 3. Review `System/review-queue.json` or the Home dashboard. It lists raw captures, daily-log ideas, project deadlines, paused work, validation findings, and link issues.
-4. Ask an agent to prepare a proposal for a selected item. A proposal is not a commitment.
-5. Review the proposal, then use the approved lifecycle command that matches your decision.
+4. Ask the agent to prepare a proposal for a selected item. A proposal is not a commitment.
+5. Review the proposal and give explicit approval when you want a lifecycle command applied.
 
 ## Capture
 
@@ -37,7 +59,9 @@ Expand this daily-log idea. State assumptions and possible next steps, but do no
 
 The local `refresh` command is safe to run unattended: it writes generated data under `System/` only. It never invokes an agent or edits notes.
 
-Agent draft automation is disabled by default. When deliberately enabled, an external agent platform may create one collision-safe companion file ending in `-- draft.md` inside `Capture/`. It must preserve the source and cannot activate, promote, archive, delete, or rewrite anything.
+Direct conversation does not need persistent draft automation: your request authorizes one collision-safe companion file ending in `-- draft.md` inside `Capture/`. It must preserve the source and cannot activate, promote, archive, delete, or rewrite anything.
+
+Scheduled agent draft automation is disabled by default. When deliberately enabled, an external agent platform may create the same kind of companion draft without a live conversation.
 
 To opt in, copy `System/automation.example.json` to `System/automation.json`, set `agent_drafts.enabled` to `true`, and configure the external agent scheduler separately. See [the automation model](../System/AUTOMATION.md).
 
@@ -56,7 +80,7 @@ tags: [project]
 ---
 ```
 
-Preview, then apply:
+Tell the agent, “I approve this as a project. Preview, then apply.” It should run:
 
 ```bash
 python3 System/zephyr-worker.py activate "Capture/Local model research.md" --approve --dry-run
@@ -77,7 +101,7 @@ source_note: "[[Article clipping]]"
 ---
 ```
 
-Preview, then move it to `Brain/`:
+Tell the agent, “I approve this note for Brain. Preview, then apply.” It should run:
 
 ```bash
 python3 System/zephyr-worker.py promote "Capture/Article clipping -- distilled.md" --approve --dry-run
@@ -86,7 +110,7 @@ python3 System/zephyr-worker.py promote "Capture/Article clipping -- distilled.m
 
 ## Archive a finished project
 
-First set the project’s status to `completed` or `stopped`. Then preview and apply:
+First explicitly approve the status change to `completed` or `stopped`. Then tell the agent to preview and archive:
 
 ```bash
 python3 System/zephyr-worker.py archive "Active/Local model research.md" --approve --dry-run

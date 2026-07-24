@@ -5,8 +5,7 @@
   "agent_drafts": {
     "enabled": false,
     "allowed_skills": [
-      "inbox-triage",
-      "idea-expansion",
+      "capture-triage",
       "source-distillation"
     ]
   },

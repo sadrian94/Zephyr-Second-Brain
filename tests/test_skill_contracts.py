@@ -12,7 +12,7 @@ SKILLS_DIR = REPO_ROOT / "System" / "skills"
 class SkillContractTests(unittest.TestCase):
     def test_every_skill_declares_automation_contract(self):
         skill_paths = sorted(SKILLS_DIR.glob("*.md"))
-        self.assertEqual(len(skill_paths), 7)
+        self.assertEqual(len(skill_paths), 4)
         seen_ids = set()
 
         for path in skill_paths:
@@ -43,6 +43,7 @@ class SkillContractTests(unittest.TestCase):
             _, raw_frontmatter, _ = path.read_text(encoding="utf-8").split("---", 2)
             skill_ids.add(yaml.safe_load(raw_frontmatter)["id"])
         self.assertTrue(set(config["agent_drafts"]["allowed_skills"]).issubset(skill_ids))
+        self.assertEqual(skill_ids, {"vault-maintenance", "capture-triage", "source-distillation", "review"})
 
     def test_source_template_is_a_proposal_not_durable_knowledge(self):
         content = (REPO_ROOT / "System" / "templates" / "source-note.md").read_text(encoding="utf-8")

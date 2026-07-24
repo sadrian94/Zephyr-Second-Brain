@@ -83,6 +83,21 @@ class UpdateModeTests(unittest.TestCase):
 
 
 class ConfigSchemaTests(unittest.TestCase):
+    def test_full_install_keeps_system_procedures_and_codex_adapter_separate(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            vault = Path(temp_dir) / "Zephyr"
+            module = load_init_module()
+
+            with patch.object(module, "DEFAULT_VAULT_DIR", str(vault)), patch.object(
+                module.sys, "argv", ["init-zephyr.py"]
+            ), patch.object(module.sys, "stdin") as stdin:
+                stdin.isatty.return_value = False
+                module.main()
+
+            self.assertTrue((vault / "System" / "skills" / "capture-triage.md").is_file())
+            self.assertTrue((vault / ".agents" / "skills" / "zephyr-second-brain" / "SKILL.md").is_file())
+            self.assertFalse((vault / ".agents" / "skills" / "capture-triage.md").exists())
+
     def test_new_config_has_no_api_settings(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir) / "workspace"

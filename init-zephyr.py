@@ -219,9 +219,9 @@ def update_vault(vault_dir):
     enable_obsidian_plugins(vault_dir)
     worker_path = os.path.join(vault_dir, "System", "zephyr-worker.py")
     if os.path.isfile(worker_path):
-        result = subprocess.run([sys.executable, worker_path, "index"], check=False)
+        result = subprocess.run([sys.executable, worker_path, "refresh"], check=False)
         if result.returncode != 0:
-            raise SystemExit("[Init] --update copied assets but failed to rebuild System/index.json.")
+            raise SystemExit("[Init] --update copied assets but failed to refresh generated System state.")
 
     for root in ("Capture", "Active", "Brain", "Archive", "System"):
         ensure_dir(os.path.join(vault_dir, root))
@@ -239,7 +239,7 @@ def main():
         update_vault(vault_dir)
         return
 
-    log("Zephyr Second Brain (0.3.0) Initialization & Configuration Wizard")
+    log("Zephyr Second Brain (0.3.1) Initialization & Configuration Wizard")
     if here_mode:
         log(f"In-place mode (--here): vault dir = {vault_dir}")
     else:

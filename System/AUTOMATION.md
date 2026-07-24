@@ -7,12 +7,12 @@ Automation should reduce clerical friction without hiding commitments. Zephyr th
 | Level | May run unattended | May write | Examples |
 | --- | --- | --- | --- |
 | Observe | Yes | Generated files under `System/` only | validate, index, link report, review queue |
-| Draft | Only after explicit opt-in | New collision-safe `-- draft.md` notes in `Capture/` | triage proposal, idea expansion, source distillation |
+| Draft | Direct human request, or explicit scheduling opt-in | New collision-safe `-- draft.md` notes in `Capture/` | capture triage, source distillation |
 | Commit | Never unattended | Approved lifecycle or prose changes | activate, promote, archive, fix links |
 
 Observe automation is deterministic, local, idempotent, and enabled when the watcher is deliberately started. It never invokes an agent or network service.
 
-Draft automation is semantic and belongs to an external agent platform. It is disabled by default. To enable it, copy `System/automation.example.json` to `System/automation.json`, set `agent_drafts.enabled` to `true`, and configure the external platform separately. Zephyr core does not schedule or invoke the agent. A scheduled agent must follow the named skill contract, preserve the source, create only a new `-- draft.md` file, refuse collisions, and record its source in proposal frontmatter.
+Draft work has two paths. A direct human request in an agent conversation authorizes one isolated companion draft in `Capture/`; the request is the consent. Scheduled semantic work is disabled by default. To enable scheduling, copy `System/automation.example.json` to `System/automation.json`, set `agent_drafts.enabled` to `true`, and configure the external platform separately. Zephyr core does not schedule or invoke the agent. A scheduled agent must follow the named skill contract, preserve the source, create only a new `-- draft.md` file, refuse collisions, and record its source in proposal frontmatter.
 
 Commit operations always require current human approval. Previous approval for a schedule or draft is not approval to activate, promote, archive, delete, repair links, rewrite prose, or change project status, priority, or deadline.
 
@@ -28,7 +28,7 @@ The optional watcher runs `refresh` after a debounce. Change `on_change` to `ind
 
 ## Skill contract
 
-Every bundled skill declares:
+The bundled procedures are `vault-maintenance`, `capture-triage`, `source-distillation`, and `review`. Every procedure declares:
 
 - `id`: stable procedure identifier;
 - `trigger`: when a human or scheduler may invoke it;

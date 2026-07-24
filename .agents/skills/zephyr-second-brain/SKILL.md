@@ -16,7 +16,7 @@ Use `System/PROTOCOL.md` as the authoritative contract. `System/skills/` contain
 
 ## Choose the action
 
-- For raw captures or semantic organization, prepare a proposal. Preserve human prose. Use `suggested_type`, `suggested_destination`, and `triage_status: proposed` for an inferred project.
+- A direct user request to capture, triage, expand, or distill a named item authorizes one new collision-safe raw note or companion draft in `Capture/`. Preserve the source. Use `suggested_type`, `suggested_destination`, and `triage_status: proposed` for an inferred project.
 - For approved activation, require complete project YAML and use `activate --approve --dry-run` before `activate --approve`.
 - For an approved durable or distilled note, require valid `type: note` YAML and use `promote --approve --dry-run` before `promote --approve`.
 - For approved completed/stopped work, use `archive --approve --dry-run` before `archive --approve`.
@@ -27,4 +27,4 @@ Use `System/PROTOCOL.md` as the authoritative contract. `System/skills/` contain
 
 Never treat a proposal as authorization. Do not activate, archive, delete, rewrite human prose, or set project status, priority, or deadlines without explicit approval. Do not invoke an LLM API or configure credentials for Zephyr core. The watcher is local-only and never invokes an agent.
 
-Observe automation may write generated state under `System/`. Draft automation is opt-in and may create only a new collision-safe `-- draft.md` proposal in `Capture/` while preserving its source. Read `System/AUTOMATION.md` before scheduled or unattended work.
+Observe automation may write generated state under `System/`. Scheduled draft automation is opt-in and may create only a new collision-safe `-- draft.md` proposal in `Capture/` while preserving its source. Read `System/AUTOMATION.md` before scheduled or unattended work.

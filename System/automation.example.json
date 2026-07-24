@@ -1,0 +1,16 @@
+{
+  "on_change": "refresh",
+  "debounce_seconds": 3.0,
+  "poll_seconds": 5.0,
+  "agent_drafts": {
+    "enabled": false,
+    "allowed_skills": [
+      "inbox-triage",
+      "idea-expansion",
+      "source-distillation"
+    ]
+  },
+  "external_delivery": {
+    "enabled": false
+  }
+}

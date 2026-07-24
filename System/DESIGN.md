@@ -58,3 +58,16 @@ Dashboards must use CSS Grids or Flexboxes configured programmatically to preven
 1. **No Emojis**: Emojis are strictly banned from markdown content, button text, and heading tags. Replace all metadata icons with crisp, inline SVG primitives (using a consistent `stroke-width="2"`, size of `14px`, and vertically aligned to the text).
 2. **No Raw HTML Layout Wrappers**: Avoid nesting markdown code blocks (like ` ```dataviewjs `) inside block-level HTML tags like `<div>`. Instead, instantiate wrappers dynamically using Javascript (`dv.container.createEl()`) to ensure compilation and rendering integrity.
 3. **Page hooks via `cssclasses`**: Use the native frontmatter YAML class property (`cssclasses: [dashboard]`) to mount layout classes to the Obsidian wrapper dynamically, maintaining clean file notes.
+
+---
+
+## 6. Automation Visibility
+
+Automation must remain legible in the interface. Generated observations, agent proposals, and approved commitments are different states and must not be styled as interchangeable facts.
+
+- **Generated observation**: neutral monochrome count or metadata; never a success badge.
+- **Proposal**: pale blue or yellow only when it helps signal review; label it as proposed or draft.
+- **Commitment or risk**: use status and priority colours already defined above; never infer them from prose.
+- **Empty state**: state what is absent and name the smallest safe next action. Do not manufacture urgency.
+
+Dashboards may summarize `System/review-queue.json`, but they must not expose controls that apply lifecycle changes without the protocol's explicit approval commands.

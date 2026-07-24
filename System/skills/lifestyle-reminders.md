@@ -1,8 +1,18 @@
 ---
 type: skill
-frequency: scheduled
+id: reminder-brief
+trigger: daily-or-on-demand
+automation: observe
+safe_to_schedule: true
+writes: [System]
 tags: [agent, procedure, reminders]
 ---
-# Lifestyle Reminder Procedure
+# Reminder Brief
 
-This is a user-configured procedure, not a Zephyr core feature. An agent may draft a reminder list when explicitly asked, but Zephyr does not connect to Discord, email, calendars, or other delivery services. Obtain the user’s approval before handing a reminder to an external service.
+## Purpose
+
+Prepare a local reminder brief from explicit deadlines and dated logs. Do not infer obligations from casual prose.
+
+Use `System/review-queue.json` and valid dated metadata. A scheduled run may write a generated report under `System/`; it may not change dates, create calendar events, or contact an external service.
+
+External delivery is a separate integration. It requires `external_delivery.enabled: true`, a user-configured destination outside Zephyr core, and platform-specific consent. Never include full private note content when a title, date, and local path are sufficient.

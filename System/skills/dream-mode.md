@@ -1,31 +1,23 @@
 ---
 type: skill
-tags: [agent, skill, maintenance]
+id: dream-mode
+trigger: daily-or-on-demand
+automation: observe
+safe_to_schedule: true
+writes: [System]
+tags: [agent, procedure, maintenance, synthesis]
 ---
-# Skill: Dream Mode Maintenance Review
+# Dream Mode
 
-This optional, human-invoked procedure prepares maintenance proposals. It does not designate a permanent agent, run automatically, mutate notes, or contact external services.
+## Purpose
 
-## Objectives
-- Maintain clean cross-references across all markdown notes in `Brain/`.
-- Compile semantic associations and suggest emerging project boundaries.
-- Keep the local flat database index synchronized and perform index verification.
+Surface possible relationships without silently editing the knowledge graph. This procedure may run on a schedule because its output is a review report, not a note mutation.
 
-## Execution Protocol
-1.  **Index Validation**:
-    *   Inspect `System/index.json` to verify it matches the files in the directory.
-    *   If index inconsistencies are found, trigger the local index compilation.
-2.  **Semantic Link Auditing**:
-    *   Scan all notes in `Brain/` that have been modified within the last 24 hours.
-    *   Compare note text against titles of other notes listed in `System/index.json`.
-    *   If a note body contains a reference to another note's title but lacks a `[[Note Name]]` wikilink:
-        *   **Propose Link**: Report the recommended link and its evidence for human review.
-        *   Do not edit user-authored text.
-3.  **Topic Cluster Detection**:
-    *   Group notes sharing similar tags or tags matching `#area/...`.
-    *   If 3 or more notes share a new unlinked concept, propose a Portal/MOC note (tagged `#moc`) and its suggested filename for human review.
-4.  **Reporting**:
-    *   Present a local status report to the human detailing:
-        *   Number of notes scanned.
-        *   Link suggestions generated.
-        *   MOC drafts proposed.
+Read `System/index.json` and recently modified `Brain/` notes. Report:
+
+- likely missing links with evidence from both notes;
+- repeated concepts that may justify a MOC;
+- contradictions or duplicated claims;
+- notes whose provenance or confidence is weak.
+
+Write only a generated report under `System/` or return it directly to the human. Do not add links, rewrite prose, create a MOC, or invoke `fix-links`. Recommendations become changes only after separate human approval.

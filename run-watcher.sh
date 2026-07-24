@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Zephyr Second Brain — File Watcher (macOS / Linux)
-# Monitors Capture/ and Brain/ for changes and triggers the worker.
+# Monitors Zephyr content roots and runs the safe refresh pipeline.
 
 set -euo pipefail
 VAULT_DIR="$(cd "$(dirname "$0")" && pwd)"

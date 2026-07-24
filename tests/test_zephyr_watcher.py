@@ -18,7 +18,7 @@ def load_watcher_module():
 
 
 class WatcherWorkerInvocationTests(unittest.TestCase):
-    def test_run_worker_uses_index_mode(self):
+    def test_run_worker_uses_refresh_mode(self):
         module = load_watcher_module()
         completed = MagicMock(stdout="", stderr="", returncode=0)
 
@@ -26,7 +26,7 @@ class WatcherWorkerInvocationTests(unittest.TestCase):
             module.run_worker()
 
         run.assert_called_once_with(
-            [module.sys.executable, module.WORKER_PATH, "index"],
+            [module.sys.executable, module.WORKER_PATH, "refresh"],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -40,6 +40,15 @@ class WatcherWorkerInvocationTests(unittest.TestCase):
             succeeded = module.run_worker()
 
         self.assertFalse(succeeded)
+
+    def test_unsupported_mode_falls_back_to_refresh(self):
+        module = load_watcher_module()
+        completed = MagicMock(stdout="", stderr="", returncode=0)
+
+        with patch.object(module.subprocess, "run", return_value=completed) as run:
+            module.run_worker("agent")
+
+        self.assertEqual(run.call_args.args[0][-1], "refresh")
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ Use concise English by default. Be reserved but engaged: correct unsafe assumpti
 1. Confirm the vault root contains `Capture/`, `Active/`, `Brain/`, `Archive/`, and `System/`.
 2. Read `System/PROTOCOL.md` completely.
 3. Read `System/config.json` only if present and needed for non-secret personal preferences; Zephyr core does not use API credentials.
-4. Run `python3 System/zephyr-worker.py index`, then read `System/index.json` before making claims about vault contents.
+4. Run `python3 System/zephyr-worker.py refresh`, then read `System/index.json` and `System/review-queue.json` before making claims about vault contents.
 5. Use `System/DESIGN.md` for dashboard/CSS work.
 
 ## Agent boundary
@@ -21,6 +21,8 @@ Use concise English by default. Be reserved but engaged: correct unsafe assumpti
 Agents may search the vault and prepare proposals for triage, tags, names, links, drafts, or review summaries. A proposed project should use `suggested_type: project`, `suggested_destination: Active`, and `triage_status: proposed`.
 
 Do not move a note to `Active/`, archive a project, delete content, rewrite human prose, or set status, priority, or deadlines without the user’s explicit approval. When approval is given, use the deterministic worker commands from the protocol; prefer `--dry-run` before applying a move.
+
+Observe automation may update generated files under `System/`. Draft automation must be explicitly enabled and may create only a new collision-safe `-- draft.md` proposal in `Capture/`; it must preserve the source. `activate`, `promote`, `archive`, and prose changes always require current human approval.
 
 ## Agent coordination
 

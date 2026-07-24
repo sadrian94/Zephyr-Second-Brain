@@ -1,4 +1,4 @@
-# Zephyr Protocol v0.2.2
+# Zephyr Protocol v0.3.0
 
 This is the canonical, agent-neutral operating contract for a Zephyr vault. Agent-specific files are adapters; they must link here rather than duplicate or override these rules.
 
@@ -20,6 +20,7 @@ Notes are flat Markdown files with unique Windows-safe names. Wikilinks are flat
 
 ```text
 Capture → agent proposes metadata/destination → human approves → deterministic command applies → index/status refresh
+Approved durable note in Capture → human approves → promote command applies → Brain
 Active project (completed or stopped) → human approves → archive command applies → index/status refresh
 ```
 
@@ -59,23 +60,39 @@ tags: [project]
 ## Deterministic commands
 
 ```bash
+python3 System/zephyr-worker.py refresh
 python3 System/zephyr-worker.py validate
 python3 System/zephyr-worker.py index
 python3 System/zephyr-worker.py health
 python3 System/zephyr-worker.py activate "Capture/Project.md" --approve --dry-run
 python3 System/zephyr-worker.py activate "Capture/Project.md" --approve
+python3 System/zephyr-worker.py promote "Capture/Distilled Note.md" --approve --dry-run
+python3 System/zephyr-worker.py promote "Capture/Distilled Note.md" --approve
 python3 System/zephyr-worker.py archive "Active/Project.md" --approve --dry-run
 python3 System/zephyr-worker.py archive "Active/Project.md" --approve
 python3 System/zephyr-worker.py fix-links --approve --dry-run
 ```
 
-`activate` validates a complete project before moving it from `Capture/` to `Active/`. `archive` accepts only completed/stopped projects unless the human uses `--force` after review. Both detect collisions, write a complete destination before removing the source, and rebuild the index. `--dry-run` changes nothing.
+`activate` validates a complete project before moving it from `Capture/` to `Active/`. `promote` validates an approved `type: note` before moving it from `Capture/` to `Brain/`. `archive` accepts only completed/stopped projects unless the human uses `--force` after review. All detect collisions, write a complete destination before removing the source, and rebuild the index. `--dry-run` changes nothing.
 
-The optional watcher merely debounces local Markdown edits and runs `index`; it never calls an agent or a network API. `fix-links` is explicit; ordinary indexing reports broken links and case mismatches instead of changing prose.
+## Automation
+
+Zephyr separates automation by consequence. See `System/AUTOMATION.md` for the complete contract.
+
+- **Observe:** may run unattended and write only generated state under `System/`.
+- **Draft:** requires explicit opt-in and may create a new collision-safe `-- draft.md` proposal in `Capture/`; it may not alter the source.
+- **Commit:** always requires current human approval and a deterministic command where available.
+
+`refresh` is the safe observe-level entry point. It validates, indexes, reports links, and creates `System/review-queue.json`. The queue is evidence for review, not authority to change notes.
+
+The local watcher may invoke `refresh`, but never an agent. A user-configured external scheduler may invoke a bundled draft skill only when draft automation is explicitly enabled. It must follow the one-writer rule and cannot convert a draft into a commitment.
+
+The optional watcher merely debounces local Markdown edits and runs `refresh` or `index`; it never calls an agent or a network API. `fix-links` is explicit; ordinary indexing reports broken links and case mismatches instead of changing prose.
 
 ## Governance
 
-- **AUTO:** create empty roots; parse, validate, index, report links/status; run the local-only watcher.
+- **AUTO:** create empty roots; parse, validate, index, report links/status; create the review queue; run the local-only watcher.
+- **OPT-IN DRAFT:** create a separate collision-safe proposal in `Capture/` while preserving its source.
 - **PROPOSE:** semantic triage, tags, titles, links, project metadata, prose edits, moves, archive, deletion, status/deadline/priority changes.
 - **NEVER:** direct LLM API calls or API-key handling in Zephyr core; hidden cloud fallback; watcher-triggered agents; rewriting old Git history; committing personal vault content to the public template.
 

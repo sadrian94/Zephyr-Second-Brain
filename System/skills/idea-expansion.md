@@ -1,36 +1,34 @@
 ---
 type: skill
-frequency: on-trigger
-tags: [agent, skill, ingestion]
+id: idea-expansion
+trigger: review-queue
+automation: draft
+safe_to_schedule: true
+writes: [Capture]
+tags: [agent, procedure, capture, ideation]
 ---
-# Skill: Idea Expansion & Deep Ingestion
+# Idea Expansion
 
-This user-invoked procedure defines how an agent may prepare an expansion proposal from raw bullet points or ideas. It has no provider-specific dependency.
+## Purpose
 
-## Objectives
-- Relieve the user of formatting and structuring overhead.
-- Transform raw, unstructured thought entries into detailed, actionable project drafts or notes.
-- Maintain original entries unchanged to preserve raw intent.
+Give a raw idea enough structure to evaluate it while preserving the original thought and uncertainty.
 
-## Execution Protocol
-1.  **Idea Discovery**:
-    *   Scan notes in `Capture/` lacking standard frontmatter or containing the tag `#idea`.
-    *   Scan the `## Capture` section of the current `daily-log.md` for entries starting with `- idea:`.
-2.  **Structuring and Expansion**:
-    *   Evaluate the raw concept. Determine if it warrants a **Project** (has clear goals and steps) or a **Note/Concept** (is a knowledge item).
-    *   **If a Project**:
-        *   Formulate a clean, NTFS-safe title.
-        *   Flesh out 3-5 initial goals and break them down into actionable steps.
-        *   Provide background context based on the raw note content.
-        *   Prepare the proposed metadata and outline using `System/templates/project.md` as a reference.
-    *   **If a Note**:
-        *   Refine the title.
-        *   Organize the content into clear, logical headers.
-        *   Extract key tags and identify relevant connections.
-        *   Prepare the proposed metadata and outline using `System/templates/note.md` as a reference.
-3.  **Draft Proposition**:
-    *   Present the expanded note, suggested filename (for example `Gmail Smart Router -- draft.md`), and proposed destination for human review.
-    *   Do not modify the user's original raw note.
-    *   Alert the user: *"I noticed your idea about X and drafted a structured project node at [[Gmail Smart Router -- draft]]. Let me know if you would like me to finalize it!"*
-4.  **Finalization**:
-    *   Treat any prose or metadata edit, rename, or move as a separate explicit approval. Follow `System/PROTOCOL.md` and use the deterministic worker where applicable.
+## Inputs
+
+- `idea` items in `System/review-queue.json`;
+- raw Capture notes explicitly selected by the human;
+- the matching source content and nearby context only.
+
+## Draft contract
+
+With draft automation enabled, create one new collision-safe `<Idea> -- draft.md` in `Capture/`. Record `triage_status: proposed`, `generated_by: agent`, and a wikilink to the source. Never append to the daily log or replace the source note.
+
+Separate facts found in the source from inference and open questions. Propose:
+
+- a concise problem or concept statement;
+- why it may matter;
+- 3–5 possible next steps or lines of inquiry;
+- candidate links and tags;
+- whether it resembles a durable note or a project proposal.
+
+Do not create a deadline, priority, status, or task commitment. Human approval is required before any rename, metadata conversion, promotion, or activation.

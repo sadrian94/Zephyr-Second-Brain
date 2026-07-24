@@ -39,6 +39,8 @@ Archive/**
 IDEA.md
 System/index.json
 System/status.json
+System/review-queue.json
+System/automation.json
 
 # ---------------------------------------------------------------------------
 # Obsidian

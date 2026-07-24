@@ -32,6 +32,7 @@ ARCHIVE_DIR = VAULT_DIR / "Archive"
 SYSTEM_DIR = VAULT_DIR / "System"
 INDEX_PATH = SYSTEM_DIR / "index.json"
 STATUS_PATH = SYSTEM_DIR / "status.json"
+REVIEW_QUEUE_PATH = SYSTEM_DIR / "review-queue.json"
 CONTENT_DIRS = (CAPTURE_DIR, ACTIVE_DIR, BRAIN_DIR, ARCHIVE_DIR)
 INVALID_FILENAME = re.compile(r'[\\/:*?"<>|]')
 WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
@@ -312,6 +313,132 @@ def find_eligible_inbox_notes() -> list[str]:
     return eligible
 
 
+def _as_date(value: Any) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def build_review_queue(
+    index: dict[str, Any] | None = None,
+    validation_issues: list[dict[str, Any]] | None = None,
+    link_issues: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
+    """Build a deterministic, read-only work queue without editing notes."""
+    index = index or load_index()
+    validation_issues = validation_issues or []
+    link_issues = link_issues if link_issues is not None else link_report()
+    today = date.today()
+    items: list[dict[str, Any]] = []
+
+    for issue in validation_issues:
+        items.append({
+            "kind": "validation",
+            "severity": "high",
+            "path": issue.get("path", ""),
+            "reason": issue.get("error", "validation issue"),
+            "action": "review",
+        })
+
+    for value in find_eligible_inbox_notes():
+        path = Path(value)
+        age_days = max(0, (today - datetime.fromtimestamp(path.stat().st_mtime).date()).days)
+        items.append({
+            "kind": "capture",
+            "severity": "medium" if age_days >= 2 else "low",
+            "path": _relative(path),
+            "reason": "raw capture awaiting triage",
+            "age_days": age_days,
+            "action": "triage_or_distill",
+        })
+
+    for idea in index.get("unprocessed_ideas", []):
+        items.append({
+            "kind": "idea",
+            "severity": "low",
+            "path": idea.get("source_log", ""),
+            "line_number": idea.get("line_number"),
+            "reason": "daily-log idea awaiting review",
+            "preview": str(idea.get("text", ""))[:160],
+            "action": "expand_or_ignore",
+        })
+
+    for entry in index.get("notes", {}).values():
+        if entry.get("root") != "Active" or entry.get("type") != "project":
+            continue
+        status = entry.get("status")
+        deadline = _as_date(entry.get("deadline"))
+        if status == "paused":
+            items.append({
+                "kind": "project",
+                "severity": "low",
+                "path": entry.get("path", ""),
+                "reason": "paused project awaiting periodic review",
+                "action": "review_status",
+            })
+        if status == "active" and deadline:
+            days = (deadline - today).days
+            if days < 0:
+                items.append({
+                    "kind": "project",
+                    "severity": "high",
+                    "path": entry.get("path", ""),
+                    "reason": f"active project overdue by {abs(days)} day(s)",
+                    "action": "review_deadline",
+                })
+            elif days <= 7:
+                items.append({
+                    "kind": "project",
+                    "severity": "medium",
+                    "path": entry.get("path", ""),
+                    "reason": f"active project due in {days} day(s)",
+                    "action": "review_deadline",
+                })
+
+    for issue in link_issues:
+        items.append({
+            "kind": "link",
+            "severity": "medium",
+            "path": issue.get("path", ""),
+            "reason": f"{issue.get('error', 'link issue')}: {issue.get('link', '')}",
+            "action": "review_link",
+        })
+
+    rank = {"high": 0, "medium": 1, "low": 2}
+    items.sort(key=lambda item: (rank.get(item["severity"], 9), item.get("path", ""), item["kind"]))
+    payload = {
+        "version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "authority": "read-only queue; no note or lifecycle state was changed",
+        "counts": {
+            "total": len(items),
+            "high": sum(item["severity"] == "high" for item in items),
+            "medium": sum(item["severity"] == "medium" for item in items),
+            "low": sum(item["severity"] == "low" for item in items),
+        },
+        "items": items,
+    }
+    _atomic_write(REVIEW_QUEUE_PATH, json.dumps(_safe_json(payload), indent=2, ensure_ascii=False) + "\n")
+    print(f"Review queue: {len(items)} item(s) written to System/review-queue.json.")
+    return payload
+
+
+def refresh() -> int:
+    """Refresh all safe generated state; findings remain proposals for review."""
+    _, validation_issues = validate_vault(False)
+    index = compile_index()
+    links = heal_links()
+    build_review_queue(index, validation_issues, links)
+    return 0
+
+
 def compile_index() -> dict[str, Any]:
     ensure_roots()
     notes: dict[str, dict[str, Any]] = {}
@@ -471,6 +598,20 @@ def archive(note: str, approve: bool, force: bool, dry_run: bool) -> Path:
     return _move_note(source, Path(ARCHIVE_DIR), frontmatter, body, dry_run)
 
 
+def promote(note: str, approve: bool, dry_run: bool) -> Path:
+    """Move an approved durable note from Capture into Brain without rewriting its body."""
+    if not approve:
+        raise CommandError("promotion requires explicit approval: add --approve")
+    source = _resolve_note(note, Path(CAPTURE_DIR))
+    frontmatter, body = parse_frontmatter(source.read_text(encoding="utf-8"))
+    if frontmatter.get("type") != "note":
+        raise CommandError("promotion requires an approved type: note in Capture")
+    errors = validate_frontmatter(frontmatter, Path(CAPTURE_DIR))
+    if errors:
+        raise CommandError("cannot promote invalid note: " + "; ".join(errors))
+    return _move_note(source, Path(BRAIN_DIR), frontmatter, body, dry_run)
+
+
 def migrate_archive(apply: bool, dry_run: bool) -> int:
     ensure_roots()
     legacy = Path(SYSTEM_DIR) / "Archive"
@@ -493,7 +634,7 @@ def migrate_archive(apply: bool, dry_run: bool) -> int:
 
 
 def sync_git() -> int:
-    print("Git sync is intentionally not automated by Zephyr v0.2.2. Use your normal, reviewed Git workflow.")
+    print("Git sync is intentionally not automated by Zephyr v0.3.0. Use your normal, reviewed Git workflow.")
     return 0
 
 
@@ -506,10 +647,12 @@ def run_mode(mode: str) -> int:
     if mode == "sync":
         sync_git()
         return 0
+    if mode == "refresh":
+        return refresh()
     if mode == "triage":
         print("Triage is an explicit agent procedure, not a core worker command. Read System/PROTOCOL.md.")
         return 2
-    print("Unknown mode. Use: index, validate, health, fix-links, activate, archive, migrate, or sync.")
+    print("Unknown mode. Use: refresh, index, validate, health, fix-links, activate, promote, archive, migrate, or sync.")
     return 2
 
 
@@ -520,13 +663,14 @@ def _parser() -> argparse.ArgumentParser:
     subparsers.add_parser("fast")
     subparsers.add_parser("all")
     subparsers.add_parser("sync")
+    subparsers.add_parser("refresh")
     validate = subparsers.add_parser("validate")
     validate.add_argument("--json", action="store_true", dest="as_json")
     subparsers.add_parser("health")
     fix = subparsers.add_parser("fix-links")
     fix.add_argument("--approve", action="store_true")
     fix.add_argument("--dry-run", action="store_true")
-    for name in ("activate", "archive"):
+    for name in ("activate", "promote", "archive"):
         command = subparsers.add_parser(name)
         command.add_argument("note")
         command.add_argument("--approve", action="store_true")
@@ -544,7 +688,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     command = args.command or "index"
     try:
-        if command in {"index", "fast", "all", "sync"}:
+        if command in {"index", "fast", "all", "sync", "refresh"}:
             code = run_mode(command)
         elif command == "validate":
             code = 0 if validate_vault(args.as_json)[0] else 1
@@ -558,6 +702,11 @@ def main(argv: list[str] | None = None) -> int:
             code = 0
         elif command == "activate":
             activate(args.note, args.approve, args.dry_run)
+            if not args.dry_run:
+                compile_index()
+            code = 0
+        elif command == "promote":
+            promote(args.note, args.approve, args.dry_run)
             if not args.dry_run:
                 compile_index()
             code = 0

@@ -1,8 +1,24 @@
 ---
 type: skill
-frequency: weekly
-tags: [agent, procedure, reporting]
+id: weekly-review
+trigger: weekly-or-on-demand
+automation: observe
+safe_to_schedule: true
+writes: [System]
+tags: [agent, procedure, review, reflection]
 ---
-# Weekly Review Procedure
+# Weekly Review
 
-When explicitly requested, read `System/index.json` and prepare a review of projects in `Active/`, deadlines, recent logs, invalid notes, and reported links. Present it as a draft for the user. Do not schedule this routine, send webhooks, modify projects, or archive material without explicit approval.
+## Purpose
+
+Prepare a calm decision brief from current evidence; do not manufacture urgency.
+
+Use `System/review-queue.json`, `System/index.json`, recent logs, and Active project metadata. Summarize:
+
+- overdue and near-term commitments;
+- paused work and unresolved captures;
+- recent wins or recurring friction explicitly present in logs;
+- choices that require the human’s attention;
+- items safe to ignore until the next review.
+
+Write only a generated report under `System/` or return it directly. Do not change project fields, schedule work, send notifications, or archive anything.

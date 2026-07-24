@@ -1,14 +1,17 @@
-# Zephyr v0.2.2 Capability Matrix
+# Zephyr v0.3.0 Capability Matrix
 
 | Capability | Status | Boundary |
 | --- | --- | --- |
 | Five-root layout, YAML validation, index, health report | **Implemented** | Local and deterministic. |
 | Approved activation and archiving | **Implemented** | Requires `--approve`; supports `--dry-run`. |
 | Link reporting and explicit case-only repairs | **Implemented** | Indexing does not edit links. |
-| Local watcher | **Implemented** | Debounce + index/report only; no agent or network calls. |
+| Local refresh automation | **Implemented** | Validate + index + link report + review queue; System writes only. |
+| Review queue | **Implemented** | Deterministic attention signals; never authorizes a note change. |
+| Capture triage, idea expansion, source distillation | **Opt-in draft** | External agent may create a separate Capture draft; source remains untouched. |
+| Durable-note promotion | **Implemented** | Requires `promote --approve`; supports `--dry-run`. |
 | Agent coordination | **Implemented** | One active writer per task/session; optional reviewers and specialists are read-only by default. |
-| Capture triage, idea expansion, Dream Mode, Slow Mode | **Agent procedure** | An agent may prepare proposals under the protocol; no scheduler or core automation runs them. |
-| Bulk guided migration, more schemas, weekly review drafts | **Planned** | Not promised as current behavior. |
+| Dream Mode, weekly review, reminder brief | **Schedulable observe** | Generated report only; no note or external-service mutation. |
+| External delivery and agent scheduling | **User integration** | Disabled by default and configured outside Zephyr core. |
 
 ## Privacy
 

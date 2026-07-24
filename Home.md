@@ -88,6 +88,16 @@ const totalInbox = dv.pages('"Capture"').filter(p => p.file.name !== 'Capture' &
 const totalProjects = dv.pages('"Active"').filter(p => p.type === 'project').length;
 const totalNotes = dv.pages('"Brain"').filter(p => p.type === 'note' && p.file.name !== 'Brain' && (!p.tags || !p.tags.includes('dashboard'))).length;
 const totalLogs = dv.pages('"Capture"').filter(p => p.type === 'log').length;
+let totalReview = 0;
+let highReview = 0;
+try {
+    const queueText = await dv.io.load("System/review-queue.json");
+    const queue = JSON.parse(queueText || "{}");
+    totalReview = Number(queue?.counts?.total || 0);
+    highReview = Number(queue?.counts?.high || 0);
+} catch (_) {
+    // The queue appears after the first refresh; an absent queue means no displayed signal yet.
+}
 
 const statsContainer = dv.container.createEl("div", { cls: "stats-row" });
 statsContainer.innerHTML = `
@@ -106,6 +116,10 @@ statsContainer.innerHTML = `
     <div class="stats-card">
         <div class="stats-value">${totalLogs}</div>
         <div class="stats-label">Daily Logs</div>
+    </div>
+    <div class="stats-card">
+        <div class="stats-value">${totalReview}</div>
+        <div class="stats-label">Review Queue${highReview ? ` / ${highReview} high` : ""}</div>
     </div>
 `;
 
@@ -236,5 +250,5 @@ dv.container.addEventListener("click", (e) => {
 ```
 
 <div class="system-status-bar">
-    <span>Zephyr Second Brain v0.2.2</span> | <span>Local index and validation</span>
+    <span>Zephyr Second Brain v0.3.0</span> | <span>Safe automation, visible decisions</span>
 </div>

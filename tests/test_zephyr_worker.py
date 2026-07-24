@@ -84,6 +84,7 @@ class LifecycleSafetyTests(unittest.TestCase):
         self.module.SYSTEM_DIR = self.vault / "System"
         self.module.INDEX_PATH = self.vault / "System" / "index.json"
         self.module.STATUS_PATH = self.vault / "System" / "status.json"
+        self.module.REVIEW_QUEUE_PATH = self.vault / "System" / "review-queue.json"
         self.module.CONTENT_DIRS = (
             self.module.CAPTURE_DIR,
             self.module.ACTIVE_DIR,
@@ -139,6 +140,39 @@ class LifecycleSafetyTests(unittest.TestCase):
             self.module.activate(str(source), approve=True, dry_run=False)
         self.assertTrue(source.exists())
         self.assertFalse((self.vault / "Active" / "Incomplete.md").exists())
+
+    def test_promotion_requires_approval_and_preserves_body(self):
+        source = self.vault / "Capture" / "Distilled.md"
+        source.write_text(
+            "---\ntype: note\ntags: [source]\n---\n\nHuman-approved synthesis.\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(self.module.CommandError):
+            self.module.promote(str(source), approve=False, dry_run=False)
+        self.module.promote(str(source), approve=True, dry_run=True)
+        self.assertTrue(source.exists())
+        self.module.promote(str(source), approve=True, dry_run=False)
+        promoted = self.vault / "Brain" / "Distilled.md"
+        self.assertTrue(promoted.exists())
+        self.assertIn("Human-approved synthesis.", promoted.read_text(encoding="utf-8"))
+
+    def test_review_queue_reports_without_changing_notes(self):
+        raw = self.vault / "Capture" / "Raw.md"
+        raw.write_text("Unprocessed thought", encoding="utf-8")
+        project = self._write_project("Active")
+        project.write_text(
+            project.read_text(encoding="utf-8").replace("2026-08-01", "2020-01-01"),
+            encoding="utf-8",
+        )
+        before_raw = raw.read_text(encoding="utf-8")
+        index = self.module.compile_index()
+
+        queue = self.module.build_review_queue(index, [], [])
+
+        self.assertEqual(raw.read_text(encoding="utf-8"), before_raw)
+        self.assertTrue(self.module.REVIEW_QUEUE_PATH.exists())
+        self.assertTrue(any(item["action"] == "triage_or_distill" for item in queue["items"]))
+        self.assertTrue(any("overdue" in item["reason"] for item in queue["items"]))
 
 
 if __name__ == "__main__":

@@ -145,6 +145,8 @@ UPDATE_FILES = {
     "Brain/Brain.md",
     "System/DESIGN.md",
     "System/PROTOCOL.md",
+    "System/AUTOMATION.md",
+    "System/automation.example.json",
     "System/rules.md",
     "System/zephyr-dashboard.css",
     "System/zephyr-watcher.py",
@@ -237,7 +239,7 @@ def main():
         update_vault(vault_dir)
         return
 
-    log("Zephyr Second Brain (0.2.2) Initialization & Configuration Wizard")
+    log("Zephyr Second Brain (0.3.0) Initialization & Configuration Wizard")
     if here_mode:
         log(f"In-place mode (--here): vault dir = {vault_dir}")
     else:

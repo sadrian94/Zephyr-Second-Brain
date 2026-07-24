@@ -1,19 +1,31 @@
 ---
-type: note
+suggested_type: note
+suggested_destination: Brain
+triage_status: proposed
+source_note: "[[Raw Source]]"
+generated_by: agent
 url: ""
 author: ""
 confidence: 3
 key_claims: []
-created: YYYY-MM-DD
-tags: [source]
+suggested_tags: [source]
 ---
 # Source Title
 
 ## Summary
 Brief summary of the source content.
 
-## Highlights
-* Key quote or point.
+## Source Claims
+- Claim made by the source.
 
-## Takeaways
-* Main takeaway.
+## Supporting Excerpts
+- Short excerpt with location or timestamp.
+
+## Synthesis
+- Interpretation; clearly separate this from the source's claims.
+
+## Open Questions
+- What remains uncertain?
+
+## Suggested Connections
+- [[Related Note]]

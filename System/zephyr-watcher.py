@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Optional local watcher for deterministic Zephyr maintenance only."""
+"""Optional local watcher for deterministic Zephyr refresh automation only."""
 
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 import time
@@ -15,18 +16,43 @@ WATCH_DIRS = [os.path.join(VAULT_DIR, name) for name in ("Capture", "Active", "B
 WORKER_PATH = os.path.join(SYSTEM_DIR, "zephyr-worker.py")
 DEBOUNCE_INTERVAL = 2.0
 POLL_INTERVAL = 2.0
+AUTOMATION_PATH = os.path.join(SYSTEM_DIR, "automation.json")
+
+
+def load_automation_config() -> dict[str, object]:
+    defaults: dict[str, object] = {
+        "on_change": "refresh",
+        "debounce_seconds": 3.0,
+        "poll_seconds": 5.0,
+    }
+    try:
+        with open(AUTOMATION_PATH, "r", encoding="utf-8") as handle:
+            configured = json.load(handle)
+        if isinstance(configured, dict):
+            defaults.update(configured)
+    except (OSError, json.JSONDecodeError):
+        pass
+    if defaults.get("on_change") not in {"refresh", "index"}:
+        defaults["on_change"] = "refresh"
+    return defaults
+
+
+AUTOMATION = load_automation_config()
+DEBOUNCE_INTERVAL = max(1.0, float(AUTOMATION["debounce_seconds"]))
+POLL_INTERVAL = max(2.0, float(AUTOMATION["poll_seconds"]))
+ON_CHANGE_COMMAND = str(AUTOMATION["on_change"])
 
 
 def log(message: str) -> None:
     print(f"[{datetime.now().strftime('%H:%M:%S')}] [Watcher] {message}")
 
 
-def run_worker(mode: str = "index") -> bool:
-    """Run only the local index/report command and return its actual outcome."""
-    if mode != "index":
-        log(f"Ignoring unsupported watcher mode {mode!r}; watcher only runs index.")
-        mode = "index"
-    log("Triggering deterministic index and link report...")
+def run_worker(mode: str = "refresh") -> bool:
+    """Run a safe local refresh/index command and return its actual outcome."""
+    if mode not in {"refresh", "index"}:
+        log(f"Ignoring unsupported watcher mode {mode!r}; using refresh.")
+        mode = "refresh"
+    log(f"Triggering deterministic {mode}...")
     try:
         result = subprocess.run(
             [sys.executable, WORKER_PATH, mode],
@@ -93,7 +119,7 @@ try:
                 time.sleep(0.5)
                 if handler.pending_change and time.time() - handler.last_change_time >= DEBOUNCE_INTERVAL:
                     handler.pending_change = False
-                    run_worker("index")
+                    run_worker(ON_CHANGE_COMMAND)
         except KeyboardInterrupt:
             observer.stop()
             log("Watcher stopped by user.")
@@ -120,11 +146,11 @@ def run_polling() -> None:
                 log("Detected local Markdown change.")
             if pending_change and time.time() - last_change_time >= DEBOUNCE_INTERVAL:
                 pending_change = False
-                run_worker("index")
+                run_worker(ON_CHANGE_COMMAND)
     except KeyboardInterrupt:
         log("Watcher stopped by user.")
 
 
 if __name__ == "__main__":
-    log("Starting Zephyr local-only watcher. It never invokes an agent or network API.")
+    log(f"Starting Zephyr local-only watcher ({ON_CHANGE_COMMAND}). It never invokes an agent or network API.")
     run_watchdog() if HAS_WATCHDOG else run_polling()
